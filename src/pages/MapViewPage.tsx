@@ -74,6 +74,102 @@ function ChangeView({ center, zoom }: { center: [number, number]; zoom: number }
   return null;
 }
 
+// MapContent component to properly handle context
+function MapContent({ 
+  selectedBlock, 
+  blocks, 
+  reports,
+  setSelectedBlock,
+  getCircleColor 
+}: {
+  selectedBlock: Block | null;
+  blocks: Block[];
+  reports: Report[];
+  setSelectedBlock: (block: Block) => void;
+  getCircleColor: (score: number) => string;
+}) {
+  const mapCenter: [number, number] = selectedBlock && NEIGHBORHOOD_CENTERS[selectedBlock.slug]
+    ? [NEIGHBORHOOD_CENTERS[selectedBlock.slug].lat, NEIGHBORHOOD_CENTERS[selectedBlock.slug].lng]
+    : CHICAGO_CENTER;
+  
+  const mapZoom = selectedBlock ? 14 : 11;
+
+  return (
+    <>
+      <ChangeView center={mapCenter} zoom={mapZoom} />
+      
+      <TileLayer
+        attribution='&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors'
+        url="https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png"
+      />
+
+      {/* LEVEL 1: City View - Show neighborhood circles */}
+      {!selectedBlock && blocks.map((block) => {
+        const center = NEIGHBORHOOD_CENTERS[block.slug];
+        if (!center) return null;
+
+        return (
+          <Circle
+            key={block.id}
+            center={[center.lat, center.lng]}
+            radius={800}
+            pathOptions={{
+              fillColor: getCircleColor(block.need_score),
+              fillOpacity: 0.5,
+              color: getCircleColor(block.need_score),
+              weight: 2,
+            }}
+            eventHandlers={{
+              click: () => setSelectedBlock(block),
+            }}
+          >
+            <Popup>
+              <div className="min-w-[180px]">
+                <h3 className="font-semibold mb-1">{block.name}</h3>
+                <p className="text-sm text-muted-foreground mb-2">
+                  Community Need Score: {block.need_score}
+                </p>
+                <Button
+                  size="sm"
+                  onClick={() => setSelectedBlock(block)}
+                  className="w-full"
+                >
+                  View issues here
+                </Button>
+              </div>
+            </Popup>
+          </Circle>
+        );
+      })}
+
+      {/* LEVEL 2: Neighborhood Detail - Show individual report pins */}
+      {selectedBlock && reports.map((report) => (
+        <Marker key={report.id} position={[report.lat, report.lng]}>
+          <Popup>
+            <div className="min-w-[200px]">
+              <div className="flex items-center gap-2 mb-2">
+                <Badge variant="secondary">{report.type.replace("_", " ")}</Badge>
+                <Badge variant={report.status === "open" ? "destructive" : "default"}>
+                  {report.status}
+                </Badge>
+              </div>
+              <p className="text-sm font-medium mb-1">
+                {report.description || "No description"}
+              </p>
+              <p className="text-xs text-muted-foreground mb-1">
+                Reported by {report.user?.display_name || "Anonymous"}
+              </p>
+              <p className="text-xs text-muted-foreground">
+                {formatDistanceToNow(new Date(report.created_at), { addSuffix: true })}
+              </p>
+            </div>
+          </Popup>
+        </Marker>
+      ))}
+    </>
+  );
+}
+
 const MapViewPage = () => {
   const [blocks, setBlocks] = useState<Block[]>([]);
   const [selectedBlock, setSelectedBlock] = useState<Block | null>(null);
@@ -157,12 +253,6 @@ const MapViewPage = () => {
     );
   }
 
-  const mapCenter: [number, number] = selectedBlock && NEIGHBORHOOD_CENTERS[selectedBlock.slug]
-    ? [NEIGHBORHOOD_CENTERS[selectedBlock.slug].lat, NEIGHBORHOOD_CENTERS[selectedBlock.slug].lng]
-    : CHICAGO_CENTER;
-  
-  const mapZoom = selectedBlock ? 14 : 11;
-
   return (
     <div className="relative h-screen w-full">
       {/* Map Legend */}
@@ -214,76 +304,13 @@ const MapViewPage = () => {
         style={{ height: "100%", width: "100%" }}
         scrollWheelZoom={true}
       >
-        <ChangeView center={mapCenter} zoom={mapZoom} />
-        
-        <TileLayer
-          attribution='&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors'
-          url="https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png"
+        <MapContent
+          selectedBlock={selectedBlock}
+          blocks={blocks}
+          reports={reports}
+          setSelectedBlock={setSelectedBlock}
+          getCircleColor={getCircleColor}
         />
-
-        {/* LEVEL 1: City View - Show neighborhood circles */}
-        {!selectedBlock && blocks.map((block) => {
-          const center = NEIGHBORHOOD_CENTERS[block.slug];
-          if (!center) return null;
-
-          return (
-            <Circle
-              key={block.id}
-              center={[center.lat, center.lng]}
-              radius={800}
-              pathOptions={{
-                fillColor: getCircleColor(block.need_score),
-                fillOpacity: 0.5,
-                color: getCircleColor(block.need_score),
-                weight: 2,
-              }}
-              eventHandlers={{
-                click: () => setSelectedBlock(block),
-              }}
-            >
-              <Popup>
-                <div className="min-w-[180px]">
-                  <h3 className="font-semibold mb-1">{block.name}</h3>
-                  <p className="text-sm text-muted-foreground mb-2">
-                    Community Need Score: {block.need_score}
-                  </p>
-                  <Button
-                    size="sm"
-                    onClick={() => setSelectedBlock(block)}
-                    className="w-full"
-                  >
-                    View issues here
-                  </Button>
-                </div>
-              </Popup>
-            </Circle>
-          );
-        })}
-
-        {/* LEVEL 2: Neighborhood Detail - Show individual report pins */}
-        {selectedBlock && reports.map((report) => (
-          <Marker key={report.id} position={[report.lat, report.lng]}>
-            <Popup>
-              <div className="min-w-[200px]">
-                <div className="flex items-center gap-2 mb-2">
-                  <Badge variant="secondary">{report.type.replace("_", " ")}</Badge>
-                  <Badge variant={report.status === "open" ? "destructive" : "default"}>
-                    {report.status}
-                  </Badge>
-                </div>
-                <p className="text-sm font-medium mb-1">
-                  {report.description || "No description"}
-                </p>
-                <p className="text-xs text-muted-foreground mb-1">
-                  Reported by {report.user?.display_name || "Anonymous"}
-                </p>
-                <p className="text-xs text-muted-foreground">
-                  {formatDistanceToNow(new Date(report.created_at), { addSuffix: true })}
-                </p>
-              </div>
-            </Popup>
-          </Marker>
-        ))}
       </MapContainer>
     </div>
   );
