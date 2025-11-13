@@ -6,7 +6,7 @@ import { Badge } from "@/components/ui/badge";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { Card, CardContent } from "@/components/ui/card";
 import { ScrollArea } from "@/components/ui/scroll-area";
-import { Loader2, Plus, List, Map } from "lucide-react";
+import { Loader2, Plus, List, Map, Trophy, User } from "lucide-react";
 import { toast } from "sonner";
 import { formatDistanceToNow } from "date-fns";
 import MapViewPage from "./MapViewPage";
@@ -158,7 +158,7 @@ const Home = () => {
 
   return (
     <div className="flex flex-col h-screen">
-      {/* Header with Toggle */}
+      {/* Header with Navigation */}
       <div className="border-b bg-background">
         <div className="container mx-auto px-4 py-3">
           <div className="flex items-center justify-between">
@@ -181,6 +181,24 @@ const Home = () => {
               >
                 <Map className="h-4 w-4" />
                 Map
+              </Button>
+              <Button
+                variant="outline"
+                size="sm"
+                onClick={() => navigate("/leaderboard")}
+                className="flex items-center gap-2"
+              >
+                <Trophy className="h-4 w-4" />
+                Leaderboard
+              </Button>
+              <Button
+                variant="outline"
+                size="sm"
+                onClick={() => navigate("/profile")}
+                className="flex items-center gap-2"
+              >
+                <User className="h-4 w-4" />
+                Profile
               </Button>
             </div>
           </div>
