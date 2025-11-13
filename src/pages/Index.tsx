@@ -10,6 +10,9 @@ const Index = () => {
           Gamified 311-style civic reporting app
         </p>
         <div className="flex gap-4 justify-center">
+          <Link to="/home">
+            <Button>Launch App</Button>
+          </Link>
           <Link to="/admin">
             <Button variant="outline">View Admin Panel</Button>
           </Link>
