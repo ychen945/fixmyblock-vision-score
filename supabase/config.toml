@@ -2,3 +2,6 @@ project_id = "mlmwbmrqqcvhioqnkczn"
 
 [functions.enrich-report]
 verify_jwt = false
+
+[functions.suggest-report-fields]
+verify_jwt = false
