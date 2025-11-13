@@ -101,7 +101,7 @@ const Profile = () => {
 
       // Get upvote counts for each report
       const reportsWithUpvotes = await Promise.all(
-        (reportsData || []).map(async (report) => {
+        (reportsData || []).map(async (report: any) => {
           const { count } = await supabase
             .from("upvotes")
             .select("*", { count: "exact", head: true })
@@ -109,6 +109,7 @@ const Profile = () => {
           
           return {
             ...report,
+            block: Array.isArray(report.block) ? report.block[0] : report.block,
             upvote_count: count || 0,
           };
         })
