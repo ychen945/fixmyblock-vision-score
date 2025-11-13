@@ -7,8 +7,9 @@ import { Textarea } from "@/components/ui/textarea";
 import { Label } from "@/components/ui/label";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
+import { Alert, AlertDescription } from "@/components/ui/alert";
 import { useToast } from "@/hooks/use-toast";
-import { Loader2, Upload, MapPin, ArrowLeft } from "lucide-react";
+import { Loader2, Upload, MapPin, ArrowLeft, Camera, Eye, Sparkles } from "lucide-react";
 
 const REPORT_TYPES = [
   { value: "pothole", label: "Pothole" },
@@ -22,10 +23,12 @@ const ReportIssue = () => {
   const navigate = useNavigate();
   const { toast } = useToast();
   const [loading, setLoading] = useState(false);
+  const [analyzingPhoto, setAnalyzingPhoto] = useState(false);
   const [blocks, setBlocks] = useState<any[]>([]);
   const [photoFile, setPhotoFile] = useState<File | null>(null);
   const [photoPreview, setPhotoPreview] = useState<string>("");
   const [useManualLocation, setUseManualLocation] = useState(false);
+  const [aiSuggested, setAiSuggested] = useState(false);
 
   const [formData, setFormData] = useState({
     type: "",
@@ -38,7 +41,27 @@ const ReportIssue = () => {
   useEffect(() => {
     fetchBlocks();
     getCurrentLocation();
+    setupDemoLogin();
   }, []);
+
+  const setupDemoLogin = async () => {
+    // Check if already logged in
+    const { data: { user } } = await supabase.auth.getUser();
+    
+    if (!user) {
+      // Get first demo user and simulate login
+      const { data: demoUsers } = await supabase
+        .from("users")
+        .select("id, email")
+        .limit(1);
+      
+      if (demoUsers && demoUsers.length > 0) {
+        console.log("Demo user loaded:", demoUsers[0].email);
+        // Store demo user ID in session storage for this session
+        sessionStorage.setItem("demo_user_id", demoUsers[0].id);
+      }
+    }
+  };
 
   const fetchBlocks = async () => {
     const { data, error } = await supabase
@@ -93,15 +116,70 @@ const ReportIssue = () => {
     }
   };
 
-  const handlePhotoChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+  const handlePhotoChange = async (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
     if (file) {
       setPhotoFile(file);
       const reader = new FileReader();
-      reader.onloadend = () => {
-        setPhotoPreview(reader.result as string);
+      reader.onloadend = async () => {
+        const base64Image = reader.result as string;
+        setPhotoPreview(base64Image);
+        
+        // Automatically analyze the photo with AI
+        await analyzePhotoWithAI(base64Image);
       };
       reader.readAsDataURL(file);
+    }
+  };
+
+  const analyzePhotoWithAI = async (imageData: string) => {
+    setAnalyzingPhoto(true);
+    try {
+      toast({
+        title: "Analyzing photo...",
+        description: "AI is analyzing your image",
+      });
+
+      const { data, error } = await supabase.functions.invoke(
+        "suggest-report-fields",
+        {
+          body: { imageData },
+        }
+      );
+
+      if (error) throw error;
+
+      if (data.success) {
+        // Auto-fill the form with AI suggestions
+        setFormData(prev => ({
+          ...prev,
+          type: data.category || prev.type,
+          description: data.short_description || prev.description,
+        }));
+        
+        setAiSuggested(true);
+        
+        toast({
+          title: "AI analysis complete!",
+          description: "We've suggested a category and description",
+        });
+      } else {
+        console.error("AI analysis failed:", data.error);
+        toast({
+          title: "Analysis unavailable",
+          description: "Please fill the form manually",
+          variant: "destructive",
+        });
+      }
+    } catch (error: any) {
+      console.error("Error analyzing photo:", error);
+      toast({
+        title: "Analysis failed",
+        description: "Please fill the form manually",
+        variant: "destructive",
+      });
+    } finally {
+      setAnalyzingPhoto(false);
     }
   };
 
@@ -151,45 +229,72 @@ const ReportIssue = () => {
     setLoading(true);
 
     try {
-      // Get current user
+      // Get current user or use demo user
       const { data: { user } } = await supabase.auth.getUser();
+      let userId = user?.id;
       
-      if (!user) {
+      if (!userId) {
+        // Use demo user from session storage
+        userId = sessionStorage.getItem("demo_user_id");
+        
+        if (!userId) {
+          // Fallback: get first user
+          const { data: demoUsers } = await supabase
+            .from("users")
+            .select("id")
+            .limit(1);
+          
+          if (demoUsers && demoUsers.length > 0) {
+            userId = demoUsers[0].id;
+          }
+        }
+      }
+
+      if (!userId) {
         toast({
-          title: "Authentication required",
-          description: "Please sign in to report an issue",
+          title: "Error",
+          description: "Could not determine user",
           variant: "destructive",
         });
-        navigate("/");
         return;
       }
 
       // Upload photo
-      const photoUrl = await uploadPhoto(user.id);
+      const photoUrl = await uploadPhoto(userId);
 
       if (!photoUrl) {
         throw new Error("Failed to upload photo");
       }
 
-      // Create report
+      // Create report with AI metadata if available
+      const reportData: any = {
+        type: formData.type,
+        description: formData.description || null,
+        lat: parseFloat(formData.lat),
+        lng: parseFloat(formData.lng),
+        block_id: formData.block_id,
+        created_by: userId,
+        status: "open",
+        photo_url: photoUrl,
+      };
+
+      // If AI suggested fields, store that info
+      if (aiSuggested) {
+        reportData.ai_metadata = {
+          ai_suggested: true,
+          suggested_at: new Date().toISOString(),
+        };
+      }
+
       const { data: report, error: reportError } = await supabase
         .from("reports")
-        .insert({
-          type: formData.type,
-          description: formData.description || null,
-          lat: parseFloat(formData.lat),
-          lng: parseFloat(formData.lng),
-          block_id: formData.block_id,
-          created_by: user.id,
-          status: "open",
-          photo_url: photoUrl,
-        })
+        .insert(reportData)
         .select()
         .single();
 
       if (reportError) throw reportError;
 
-      // Call edge function to enrich with OpenAI (non-blocking)
+      // Call edge function to enrich with detailed AI analysis (non-blocking)
       supabase.functions
         .invoke("enrich-report", {
           body: { reportId: report.id },
@@ -238,27 +343,64 @@ const ReportIssue = () => {
           </CardHeader>
           <CardContent>
             <form onSubmit={handleSubmit} className="space-y-6">
+              {/* AI Suggestion Banner */}
+              {aiSuggested && (
+                <Alert className="bg-primary/10 border-primary/20">
+                  <Sparkles className="h-4 w-4 text-primary" />
+                  <AlertDescription>
+                    <Eye className="h-4 w-4 inline mr-1" />
+                    We analyzed your photo and suggested a category and description. You can edit these before submitting.
+                  </AlertDescription>
+                </Alert>
+              )}
+
               {/* Photo Upload */}
               <div className="space-y-2">
                 <Label htmlFor="photo">Photo *</Label>
-                <div className="flex flex-col gap-2">
+                <div className="flex flex-col gap-3">
                   {photoPreview && (
-                    <img
-                      src={photoPreview}
-                      alt="Preview"
-                      className="w-full h-48 object-cover rounded-lg border"
-                    />
+                    <div className="relative">
+                      <img
+                        src={photoPreview}
+                        alt="Preview"
+                        className="w-full h-48 object-cover rounded-lg border"
+                      />
+                      {analyzingPhoto && (
+                        <div className="absolute inset-0 bg-background/80 flex items-center justify-center rounded-lg">
+                          <div className="text-center">
+                            <Loader2 className="h-8 w-8 animate-spin text-primary mx-auto mb-2" />
+                            <p className="text-sm font-medium">Analyzing photo...</p>
+                          </div>
+                        </div>
+                      )}
+                    </div>
                   )}
-                  <div className="relative">
-                    <Input
-                      id="photo"
-                      type="file"
-                      accept="image/*"
-                      onChange={handlePhotoChange}
-                      className="cursor-pointer"
-                    />
-                    <Upload className="absolute right-3 top-3 h-4 w-4 text-muted-foreground pointer-events-none" />
+                  <div className="grid grid-cols-2 gap-2">
+                    <div className="relative">
+                      <Input
+                        id="photo-upload"
+                        type="file"
+                        accept="image/*"
+                        onChange={handlePhotoChange}
+                        className="cursor-pointer"
+                      />
+                      <Upload className="absolute right-3 top-3 h-4 w-4 text-muted-foreground pointer-events-none" />
+                    </div>
+                    <div className="relative">
+                      <Input
+                        id="photo-camera"
+                        type="file"
+                        accept="image/*"
+                        capture="environment"
+                        onChange={handlePhotoChange}
+                        className="cursor-pointer"
+                      />
+                      <Camera className="absolute right-3 top-3 h-4 w-4 text-muted-foreground pointer-events-none" />
+                    </div>
                   </div>
+                  <p className="text-xs text-muted-foreground">
+                    Upload a photo or take one with your camera
+                  </p>
                 </div>
               </div>
 
@@ -270,6 +412,7 @@ const ReportIssue = () => {
                   onValueChange={(value) =>
                     setFormData({ ...formData, type: value })
                   }
+                  disabled={analyzingPhoto}
                 >
                   <SelectTrigger>
                     <SelectValue placeholder="Select issue type" />
@@ -317,6 +460,7 @@ const ReportIssue = () => {
                     setFormData({ ...formData, description: e.target.value })
                   }
                   rows={4}
+                  disabled={analyzingPhoto}
                 />
               </div>
 
