@@ -6,10 +6,11 @@ import { Badge } from "@/components/ui/badge";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { Card, CardContent } from "@/components/ui/card";
 import { ScrollArea } from "@/components/ui/scroll-area";
-import { Loader2, Plus, List, Map, Trophy, User } from "lucide-react";
+import { Loader2, Plus, List, Map, Trophy, User, SlidersHorizontal } from "lucide-react";
 import { toast } from "sonner";
 import { formatDistanceToNow } from "date-fns";
 import MapViewPage from "./MapViewPage";
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 
 interface Report {
   id: string;
@@ -32,15 +33,25 @@ interface Report {
   upvotes: { user_id: string }[];
 }
 
+interface Block {
+  id: string;
+  name: string;
+  slug: string;
+}
+
 const Home = () => {
   const navigate = useNavigate();
   const [reports, setReports] = useState<Report[]>([]);
   const [loading, setLoading] = useState(true);
   const [currentUserId, setCurrentUserId] = useState<string | null>(null);
   const [viewMode, setViewMode] = useState<"feed" | "map">("feed");
+  const [blocks, setBlocks] = useState<Block[]>([]);
+  const [selectedBlock, setSelectedBlock] = useState<string>("all");
+  const [sortBy, setSortBy] = useState<"date" | "upvotes">("date");
 
   useEffect(() => {
     fetchReports();
+    fetchBlocks();
     checkUser();
   }, []);
 
@@ -72,6 +83,40 @@ const Home = () => {
     } finally {
       setLoading(false);
     }
+  };
+
+  const fetchBlocks = async () => {
+    try {
+      const { data, error } = await supabase
+        .from("blocks")
+        .select("id, name, slug")
+        .order("name", { ascending: true });
+
+      if (error) throw error;
+      setBlocks(data || []);
+    } catch (error: any) {
+      console.error("Failed to load blocks:", error.message);
+    }
+  };
+
+  const getFilteredAndSortedReports = () => {
+    let filtered = reports;
+
+    // Filter by block
+    if (selectedBlock !== "all") {
+      filtered = filtered.filter((r) => r.block?.slug === selectedBlock);
+    }
+
+    // Sort
+    if (sortBy === "upvotes") {
+      filtered = [...filtered].sort((a, b) => b.upvotes.length - a.upvotes.length);
+    } else {
+      filtered = [...filtered].sort(
+        (a, b) => new Date(b.created_at).getTime() - new Date(a.created_at).getTime()
+      );
+    }
+
+    return filtered;
   };
 
   const handleUpvote = async (reportId: string) => {
@@ -202,6 +247,38 @@ const Home = () => {
               </Button>
             </div>
           </div>
+
+          {/* Filter and Sort Controls */}
+          {viewMode === "feed" && (
+            <div className="flex items-center gap-3 mt-3 pb-1">
+              <div className="flex items-center gap-2 text-sm text-muted-foreground">
+                <SlidersHorizontal className="h-4 w-4" />
+                <span>Filter & Sort:</span>
+              </div>
+              <Select value={selectedBlock} onValueChange={setSelectedBlock}>
+                <SelectTrigger className="w-[200px] h-9">
+                  <SelectValue placeholder="All Neighborhoods" />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="all">All Neighborhoods</SelectItem>
+                  {blocks.map((block) => (
+                    <SelectItem key={block.id} value={block.slug}>
+                      {block.name}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+              <Select value={sortBy} onValueChange={(value: "date" | "upvotes") => setSortBy(value)}>
+                <SelectTrigger className="w-[150px] h-9">
+                  <SelectValue />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="date">Latest First</SelectItem>
+                  <SelectItem value="upvotes">Most Upvoted</SelectItem>
+                </SelectContent>
+              </Select>
+            </div>
+          )}
         </div>
       </div>
 
@@ -212,7 +289,12 @@ const Home = () => {
           <div className="h-full bg-background">
             <ScrollArea className="h-full">
               <div className="container mx-auto max-w-2xl p-4 space-y-3 pb-24">
-                {reports.map((report) => (
+                {getFilteredAndSortedReports().length === 0 ? (
+                  <div className="text-center py-12">
+                    <p className="text-muted-foreground">No reports found for the selected filters.</p>
+                  </div>
+                ) : (
+                  getFilteredAndSortedReports().map((report) => (
                   <Card key={report.id}>
                     <CardContent className="p-4">
                       <div className="flex items-start gap-3">
@@ -279,7 +361,8 @@ const Home = () => {
                       </div>
                     </CardContent>
                   </Card>
-                ))}
+                  ))
+                )}
               </div>
             </ScrollArea>
           </div>
