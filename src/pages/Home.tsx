@@ -6,10 +6,10 @@ import { Badge } from "@/components/ui/badge";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { Card, CardContent } from "@/components/ui/card";
 import { ScrollArea } from "@/components/ui/scroll-area";
-import { Loader2, Plus } from "lucide-react";
+import { Loader2, Plus, List, Map } from "lucide-react";
 import { toast } from "sonner";
-import MapView from "@/components/MapView";
 import { formatDistanceToNow } from "date-fns";
+import MapViewPage from "./MapViewPage";
 
 interface Report {
   id: string;
@@ -37,6 +37,7 @@ const Home = () => {
   const [reports, setReports] = useState<Report[]>([]);
   const [loading, setLoading] = useState(true);
   const [currentUserId, setCurrentUserId] = useState<string | null>(null);
+  const [viewMode, setViewMode] = useState<"feed" | "map">("feed");
 
   useEffect(() => {
     fetchReports();
@@ -157,111 +158,130 @@ const Home = () => {
 
   return (
     <div className="flex flex-col h-screen">
-      {/* Top Bar */}
-      <header className="border-b bg-background px-6 py-4 flex items-center justify-between">
-        <h1 className="text-2xl font-bold">FixMyBlock</h1>
-        <Avatar
-          className="cursor-pointer"
-          onClick={() => navigate("/profile")}
-        >
-          <AvatarImage src="https://api.dicebear.com/7.x/avataaars/svg?seed=User" />
-          <AvatarFallback>U</AvatarFallback>
-        </Avatar>
-      </header>
-
-      {/* Main Content */}
-      <div className="flex-1 flex overflow-hidden">
-        {/* Community Feed - Left Column */}
-        <div className="w-1/2 border-r">
-          <ScrollArea className="h-full">
-            <div className="p-4 space-y-3">
-              {reports.map((report) => (
-                <Card key={report.id}>
-                  <CardContent className="p-4">
-                    <div className="flex items-start gap-3">
-                      <Avatar className="h-10 w-10">
-                        <AvatarImage src={report.user.avatar_url || undefined} />
-                        <AvatarFallback>
-                          {report.user.display_name.charAt(0)}
-                        </AvatarFallback>
-                      </Avatar>
-                      <div className="flex-1 min-w-0">
-                        <p className="text-sm">
-                          <span className="font-semibold">
-                            {report.user.display_name}
-                          </span>{" "}
-                          reported a{" "}
-                          <span className="font-medium">
-                            {report.type.replace("_", " ")}
-                          </span>{" "}
-                          at{" "}
-                          <span className="font-medium">
-                            {report.block?.name || "unknown location"}
-                          </span>
-                        </p>
-                        <p className="text-xs text-muted-foreground mt-1">
-                          {formatDistanceToNow(new Date(report.created_at), {
-                            addSuffix: true,
-                          })}
-                        </p>
-                        {report.description && (
-                          <p className="text-sm text-muted-foreground mt-2">
-                            {report.description}
-                          </p>
-                        )}
-                        <div className="flex items-center gap-2 mt-3">
-                          <Badge
-                            variant={
-                              report.status === "open"
-                                ? "destructive"
-                                : "secondary"
-                            }
-                          >
-                            {report.status}
-                          </Badge>
-                          <Button
-                            size="sm"
-                            variant="ghost"
-                            onClick={() => handleUpvote(report.id)}
-                            className="text-xs"
-                          >
-                            👍 I see this too ({report.upvotes.length})
-                          </Button>
-                          {report.status === "open" && (
-                            <Button
-                              size="sm"
-                              variant="ghost"
-                              onClick={() => handleResolveReport(report.id)}
-                              className="text-xs"
-                            >
-                              ✅ Resolved
-                            </Button>
-                          )}
-                        </div>
-                      </div>
-                    </div>
-                  </CardContent>
-                </Card>
-              ))}
+      {/* Header with Toggle */}
+      <div className="border-b bg-background">
+        <div className="container mx-auto px-4 py-3">
+          <div className="flex items-center justify-between">
+            <h1 className="text-2xl font-bold">FixMyBlock</h1>
+            <div className="flex gap-2">
+              <Button
+                variant={viewMode === "feed" ? "default" : "outline"}
+                size="sm"
+                onClick={() => setViewMode("feed")}
+                className="flex items-center gap-2"
+              >
+                <List className="h-4 w-4" />
+                Feed
+              </Button>
+              <Button
+                variant={viewMode === "map" ? "default" : "outline"}
+                size="sm"
+                onClick={() => setViewMode("map")}
+                className="flex items-center gap-2"
+              >
+                <Map className="h-4 w-4" />
+                Map
+              </Button>
             </div>
-          </ScrollArea>
-        </div>
-
-        {/* Map View - Right Column */}
-        <div className="w-1/2 relative">
-          <MapView reports={mapReports} />
+          </div>
         </div>
       </div>
 
-      {/* Floating Action Button */}
-      <Button
-        size="lg"
-        className="fixed bottom-6 left-1/2 -translate-x-1/2 rounded-full shadow-lg"
-        onClick={() => navigate("/report")}
-      >
-        <Plus className="h-5 w-5 mr-2" />
-        Report Issue
-      </Button>
+      {/* Main Content */}
+      <div className="flex-1 overflow-hidden">
+        {viewMode === "feed" ? (
+          /* Community Feed View */
+          <div className="h-full bg-background">
+            <ScrollArea className="h-full">
+              <div className="container mx-auto max-w-2xl p-4 space-y-3 pb-24">
+                {reports.map((report) => (
+                  <Card key={report.id}>
+                    <CardContent className="p-4">
+                      <div className="flex items-start gap-3">
+                        <Avatar className="h-10 w-10">
+                          <AvatarImage src={report.user.avatar_url || undefined} />
+                          <AvatarFallback>
+                            {report.user.display_name.charAt(0)}
+                          </AvatarFallback>
+                        </Avatar>
+                        <div className="flex-1 min-w-0">
+                          <p className="text-sm">
+                            <span className="font-semibold">
+                              {report.user.display_name}
+                            </span>{" "}
+                            reported a{" "}
+                            <span className="font-medium">
+                              {report.type.replace("_", " ")}
+                            </span>{" "}
+                            at{" "}
+                            <span className="font-medium">
+                              {report.block?.name || "unknown location"}
+                            </span>
+                          </p>
+                          <p className="text-xs text-muted-foreground mt-1">
+                            {formatDistanceToNow(new Date(report.created_at), {
+                              addSuffix: true,
+                            })}
+                          </p>
+                          {report.description && (
+                            <p className="text-sm text-muted-foreground mt-2">
+                              {report.description}
+                            </p>
+                          )}
+                          <div className="flex items-center gap-2 mt-3">
+                            <Badge
+                              variant={
+                                report.status === "open"
+                                  ? "destructive"
+                                  : "secondary"
+                              }
+                            >
+                              {report.status}
+                            </Badge>
+                            <Button
+                              size="sm"
+                              variant="ghost"
+                              onClick={() => handleUpvote(report.id)}
+                              className="text-xs"
+                            >
+                              👍 I see this too ({report.upvotes.length})
+                            </Button>
+                            {report.status === "open" && (
+                              <Button
+                                size="sm"
+                                variant="ghost"
+                                onClick={() => handleResolveReport(report.id)}
+                                className="text-xs"
+                              >
+                                ✅ Resolved
+                              </Button>
+                            )}
+                          </div>
+                        </div>
+                      </div>
+                    </CardContent>
+                  </Card>
+                ))}
+              </div>
+            </ScrollArea>
+          </div>
+        ) : (
+          /* Map View */
+          <MapViewPage />
+        )}
+      </div>
+
+      {/* Floating Action Button (only show on Feed view) */}
+      {viewMode === "feed" && (
+        <Button
+          size="lg"
+          className="fixed bottom-6 left-1/2 -translate-x-1/2 rounded-full shadow-lg z-50"
+          onClick={() => navigate("/report")}
+        >
+          <Plus className="h-5 w-5 mr-2" />
+          Report Issue
+        </Button>
+      )}
     </div>
   );
 };
