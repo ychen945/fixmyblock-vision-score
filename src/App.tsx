@@ -8,6 +8,7 @@ import Home from "./pages/Home";
 import Profile from "./pages/Profile";
 import ReportIssue from "./pages/ReportIssue";
 import Admin from "./pages/Admin";
+import Leaderboard from "./pages/Leaderboard";
 import SubmissionConfirmation from "./pages/SubmissionConfirmation";
 import NotFound from "./pages/NotFound";
 
@@ -24,6 +25,7 @@ const App = () => (
           <Route path="/home" element={<Home />} />
           <Route path="/profile" element={<Profile />} />
           <Route path="/report" element={<ReportIssue />} />
+          <Route path="/leaderboard" element={<Leaderboard />} />
           <Route path="/confirmation/:reportId" element={<SubmissionConfirmation />} />
           <Route path="/admin" element={<Admin />} />
           {/* ADD ALL CUSTOM ROUTES ABOVE THE CATCH-ALL "*" ROUTE */}
