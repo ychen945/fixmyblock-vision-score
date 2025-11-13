@@ -119,6 +119,23 @@ const Home = () => {
     }
   };
 
+  const handleResolveReport = async (reportId: string) => {
+    if (!currentUserId) {
+      toast.error("Please sign in to resolve reports");
+      return;
+    }
+
+    // Show gentle notification in bottom left
+    toast.success("Thanks for letting us know!", {
+      description: "📸 Got a photo? Adding one helps us verify and resolve faster!",
+      duration: 5000,
+    });
+
+    // Here you could add logic to track that user provided feedback
+    // For now, we just show the notification without marking as resolved
+    console.log("User provided feedback for report:", reportId);
+  };
+
   const mapReports = reports.map((r) => ({
     id: r.id,
     lat: r.lat,
@@ -210,6 +227,16 @@ const Home = () => {
                           >
                             👍 I see this too ({report.upvotes.length})
                           </Button>
+                          {report.status === "open" && (
+                            <Button
+                              size="sm"
+                              variant="ghost"
+                              onClick={() => handleResolveReport(report.id)}
+                              className="text-xs"
+                            >
+                              ✅ Resolved
+                            </Button>
+                          )}
                         </div>
                       </div>
                     </div>

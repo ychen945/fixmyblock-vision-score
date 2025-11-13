@@ -3,6 +3,9 @@ import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { useNavigate } from "react-router-dom";
 import { Card } from "@/components/ui/card";
+import { MapContainer, TileLayer, Marker, Popup } from 'react-leaflet';
+import L from 'leaflet';
+import 'leaflet/dist/leaflet.css';
 
 interface Report {
   id: string;
@@ -25,75 +28,102 @@ interface MapViewProps {
 const getMarkerColor = (type: string) => {
   switch (type) {
     case "pothole":
-      return "hsl(var(--destructive))";
+      return "#dc2626"; // red
     case "broken_light":
-      return "hsl(var(--warning))";
+      return "#f59e0b"; // amber
     case "trash":
-      return "hsl(var(--success))";
+      return "#10b981"; // green
     case "flooding":
-      return "hsl(var(--primary))";
+      return "#3b82f6"; // blue
     case "other":
-      return "hsl(var(--secondary))";
+      return "#6b7280"; // gray
     default:
-      return "hsl(var(--muted))";
+      return "#6b7280";
   }
+};
+
+const createCustomIcon = (type: string) => {
+  const color = getMarkerColor(type);
+  return L.divIcon({
+    className: 'custom-marker',
+    html: `<div style="
+      width: 24px;
+      height: 24px;
+      border-radius: 50%;
+      background-color: ${color};
+      border: 2px solid white;
+      box-shadow: 0 2px 4px rgba(0,0,0,0.3);
+    "></div>`,
+    iconSize: [24, 24],
+    iconAnchor: [12, 12],
+  });
 };
 
 const MapView = ({ reports }: MapViewProps) => {
   const navigate = useNavigate();
   const [selectedReport, setSelectedReport] = useState<Report | null>(null);
 
-  // Normalize coordinates to position on a fixed grid
-  // Assuming NYC coordinates roughly: lat 40.7-40.8, lng -74.0 to -73.9
-  const normalizePosition = (lat: number, lng: number) => {
-    const latMin = 40.7;
-    const latMax = 40.8;
-    const lngMin = -74.0;
-    const lngMax = -73.9;
-    
-    const x = ((lng - lngMin) / (lngMax - lngMin)) * 100;
-    const y = ((latMax - lat) / (latMax - latMin)) * 100;
-    
-    return { x: Math.max(0, Math.min(100, x)), y: Math.max(0, Math.min(100, y)) };
-  };
+  // Center on Chicago
+  const chicagoCenter: [number, number] = [41.8781, -87.6298];
 
   return (
-    <div className="h-full w-full relative bg-muted/20 rounded-lg overflow-hidden border border-border">
-      {/* Map Grid */}
-      <div className="absolute inset-0 opacity-10">
-        <div className="grid grid-cols-10 grid-rows-10 h-full w-full">
-          {Array.from({ length: 100 }).map((_, i) => (
-            <div key={i} className="border border-border/30" />
-          ))}
-        </div>
-      </div>
-
-      {/* Markers */}
-      {reports.map((report) => {
-        const pos = normalizePosition(report.lat, report.lng);
-        return (
-          <div
+    <div className="h-full w-full relative rounded-lg overflow-hidden border border-border">
+      <MapContainer
+        center={chicagoCenter}
+        zoom={12}
+        style={{ height: '100%', width: '100%' }}
+        scrollWheelZoom={true}
+      >
+        <TileLayer
+          attribution='&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors'
+          url="https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png"
+        />
+        
+        {reports.map((report) => (
+          <Marker
             key={report.id}
-            className="absolute cursor-pointer transform -translate-x-1/2 -translate-y-1/2 hover:scale-125 transition-transform z-10"
-            style={{
-              left: `${pos.x}%`,
-              top: `${pos.y}%`,
+            position={[report.lat, report.lng]}
+            icon={createCustomIcon(report.type)}
+            eventHandlers={{
+              click: () => setSelectedReport(report),
             }}
-            onClick={() => setSelectedReport(report)}
           >
-            <div
-              className="w-6 h-6 rounded-full border-2 border-background shadow-lg"
-              style={{
-                backgroundColor: getMarkerColor(report.type),
-              }}
-            />
-          </div>
-        );
-      })}
+            <Popup>
+              <div className="min-w-[200px]">
+                <div className="flex items-center gap-2 mb-2">
+                  <Badge variant="secondary">{report.type.replace("_", " ")}</Badge>
+                  <Badge variant={report.status === "open" ? "destructive" : "default"}>
+                    {report.status}
+                  </Badge>
+                </div>
+                <p className="text-sm font-medium mb-1">
+                  {report.block?.name || "Unknown location"}
+                </p>
+                <p className="text-sm text-muted-foreground mb-2">
+                  {report.description || "No description"}
+                </p>
+                <p className="text-xs text-muted-foreground mb-3">
+                  👍 {report.upvote_count} {report.upvote_count === 1 ? "person" : "people"} see this
+                </p>
+                {report.block && (
+                  <Button
+                    size="sm"
+                    variant="outline"
+                    className="w-full"
+                    onClick={() => navigate(`/block/${report.block!.slug}`)}
+                  >
+                    View this block
+                  </Button>
+                )}
+              </div>
+            </Popup>
+          </Marker>
+        ))}
+      </MapContainer>
 
-      {/* Popup */}
-      {selectedReport && (
-        <Card className="absolute bottom-4 left-1/2 transform -translate-x-1/2 p-4 min-w-[280px] shadow-xl z-20">
+      {/* Optional: Floating card for selected report (alternative to popup) */}
+      {selectedReport && false && (
+        <Card className="absolute bottom-4 left-1/2 transform -translate-x-1/2 p-4 min-w-[280px] shadow-xl z-[1000]">
           <div className="flex justify-between items-start mb-2">
             <div className="flex items-center gap-2">
               <Badge variant="secondary">{selectedReport.type.replace("_", " ")}</Badge>

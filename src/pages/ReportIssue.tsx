@@ -85,11 +85,15 @@ const ReportIssue = () => {
     if ("geolocation" in navigator) {
       navigator.geolocation.getCurrentPosition(
         (position) => {
+          const lat = position.coords.latitude.toFixed(6);
+          const lng = position.coords.longitude.toFixed(6);
           setFormData(prev => ({
             ...prev,
-            lat: position.coords.latitude.toFixed(6),
-            lng: position.coords.longitude.toFixed(6),
+            lat,
+            lng,
           }));
+          // Auto-detect block based on location
+          detectBlock(parseFloat(lat), parseFloat(lng));
           toast({
             title: "Location found",
             description: "Using your current location",
@@ -98,21 +102,56 @@ const ReportIssue = () => {
         (error) => {
           console.error("Geolocation error:", error);
           setUseManualLocation(true);
-          // Default to NYC coordinates
+          // Default to Chicago coordinates
+          const chicagoLat = "41.8781";
+          const chicagoLng = "-87.6298";
           setFormData(prev => ({
             ...prev,
-            lat: "40.758",
-            lng: "-73.985",
+            lat: chicagoLat,
+            lng: chicagoLng,
           }));
+          detectBlock(parseFloat(chicagoLat), parseFloat(chicagoLng));
         }
       );
     } else {
       setUseManualLocation(true);
+      const chicagoLat = "41.8781";
+      const chicagoLng = "-87.6298";
       setFormData(prev => ({
         ...prev,
-        lat: "40.758",
-        lng: "-73.985",
+        lat: chicagoLat,
+        lng: chicagoLng,
       }));
+      detectBlock(parseFloat(chicagoLat), parseFloat(chicagoLng));
+    }
+  };
+
+  const detectBlock = async (lat: number, lng: number) => {
+    // Simple block detection based on Chicago coordinates
+    // In a real app, you'd use reverse geocoding or a proper block boundary API
+    if (blocks.length === 0) return;
+
+    // For now, assign a block based on quadrant
+    let detectedBlock;
+    if (lng < -87.65) {
+      detectedBlock = blocks.find(b => b.slug === "west-loop") || blocks[0];
+    } else if (lng >= -87.65 && lat > 41.9) {
+      detectedBlock = blocks.find(b => b.slug === "lincoln-park") || blocks[0];
+    } else if (lng >= -87.65 && lat <= 41.9 && lat > 41.85) {
+      detectedBlock = blocks.find(b => b.slug === "loop") || blocks[0];
+    } else {
+      detectedBlock = blocks.find(b => b.slug === "south-loop") || blocks[0];
+    }
+
+    if (detectedBlock) {
+      setFormData(prev => ({
+        ...prev,
+        block_id: detectedBlock.id,
+      }));
+      toast({
+        title: "Block detected",
+        description: `Assigned to ${detectedBlock.name}`,
+      });
     }
   };
 
