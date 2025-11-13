@@ -12,6 +12,7 @@ interface Block {
   name: string;
   slug: string;
   need_score: number;
+  report_count?: number;
 }
 
 interface Report {
@@ -48,11 +49,22 @@ const MapViewPage = () => {
     try {
       const { data, error } = await supabase
         .from("blocks")
-        .select("*")
+        .select(`
+          *,
+          reports:reports(count)
+        `)
         .order("name");
 
       if (error) throw error;
-      setBlocks(data || []);
+      
+      // Transform the data to include report count
+      const blocksWithCounts = (data || []).map((block: any) => ({
+        ...block,
+        report_count: block.reports?.[0]?.count || 0,
+        reports: undefined // Remove the reports array
+      }));
+      
+      setBlocks(blocksWithCounts);
     } catch (error: any) {
       toast.error("Failed to load neighborhoods: " + error.message);
     } finally {
@@ -90,6 +102,20 @@ const MapViewPage = () => {
     } catch (error: any) {
       toast.error("Failed to load reports: " + error.message);
     }
+  };
+
+  const getReportHeatColor = (reportCount: number): string => {
+    if (reportCount === 0) return "bg-gray-100/50 border-gray-300/50 hover:bg-gray-100";
+    if (reportCount <= 2) return "bg-blue-100/50 border-blue-300/50 hover:bg-blue-100";
+    if (reportCount <= 5) return "bg-yellow-100/50 border-yellow-400/50 hover:bg-yellow-100";
+    if (reportCount <= 10) return "bg-orange-100/50 border-orange-400/50 hover:bg-orange-100";
+    return "bg-red-100/50 border-red-400/50 hover:bg-red-100";
+  };
+
+  const getReportHeatBadge = (reportCount: number): "default" | "secondary" | "destructive" => {
+    if (reportCount === 0) return "secondary";
+    if (reportCount <= 5) return "default";
+    return "destructive";
   };
 
   const getNeedScoreColor = (score: number): string => {
@@ -136,19 +162,44 @@ const MapViewPage = () => {
           {/* Legend */}
           <Card className="mb-6">
             <CardContent className="p-4">
-              <div className="flex flex-wrap gap-4 items-center">
-                <span className="font-semibold text-sm">Need Level:</span>
-                <div className="flex items-center gap-2">
-                  <div className="w-4 h-4 rounded-full bg-green-500" />
-                  <span className="text-sm">Low (0-30)</span>
+              <div className="flex flex-col gap-4">
+                <div className="flex flex-wrap gap-4 items-center">
+                  <span className="font-semibold text-sm">Report Heatmap:</span>
+                  <div className="flex items-center gap-2">
+                    <div className="w-4 h-4 rounded-full bg-gray-300" />
+                    <span className="text-sm">No reports</span>
+                  </div>
+                  <div className="flex items-center gap-2">
+                    <div className="w-4 h-4 rounded-full bg-blue-300" />
+                    <span className="text-sm">1-2 reports</span>
+                  </div>
+                  <div className="flex items-center gap-2">
+                    <div className="w-4 h-4 rounded-full bg-yellow-400" />
+                    <span className="text-sm">3-5 reports</span>
+                  </div>
+                  <div className="flex items-center gap-2">
+                    <div className="w-4 h-4 rounded-full bg-orange-400" />
+                    <span className="text-sm">6-10 reports</span>
+                  </div>
+                  <div className="flex items-center gap-2">
+                    <div className="w-4 h-4 rounded-full bg-red-400" />
+                    <span className="text-sm">11+ reports</span>
+                  </div>
                 </div>
-                <div className="flex items-center gap-2">
-                  <div className="w-4 h-4 rounded-full bg-yellow-500" />
-                  <span className="text-sm">Medium (31-70)</span>
-                </div>
-                <div className="flex items-center gap-2">
-                  <div className="w-4 h-4 rounded-full bg-red-500" />
-                  <span className="text-sm">High (71+)</span>
+                <div className="flex flex-wrap gap-4 items-center border-t pt-4">
+                  <span className="font-semibold text-sm">Need Level:</span>
+                  <div className="flex items-center gap-2">
+                    <div className="w-4 h-4 rounded-full bg-green-500" />
+                    <span className="text-sm">Low (0-30)</span>
+                  </div>
+                  <div className="flex items-center gap-2">
+                    <div className="w-4 h-4 rounded-full bg-yellow-500" />
+                    <span className="text-sm">Medium (31-70)</span>
+                  </div>
+                  <div className="flex items-center gap-2">
+                    <div className="w-4 h-4 rounded-full bg-red-500" />
+                    <span className="text-sm">High (71+)</span>
+                  </div>
                 </div>
               </div>
             </CardContent>
@@ -159,7 +210,7 @@ const MapViewPage = () => {
             {blocks.map((block) => (
               <Card
                 key={block.id}
-                className={`cursor-pointer transition-all border-2 ${getNeedScoreColor(block.need_score)}`}
+                className={`cursor-pointer transition-all border-2 ${getReportHeatColor(block.report_count || 0)}`}
                 onClick={() => setSelectedBlock(block)}
               >
                 <CardHeader className="pb-3">
@@ -169,17 +220,17 @@ const MapViewPage = () => {
                   </CardTitle>
                 </CardHeader>
                 <CardContent>
-                  <div className="flex items-center justify-between">
-                    <Badge variant={getNeedScoreBadgeVariant(block.need_score)}>
-                      {getNeedScoreLabel(block.need_score)}
+                  <div className="flex items-center justify-between mb-3">
+                    <Badge variant={getReportHeatBadge(block.report_count || 0)}>
+                      {block.report_count || 0} {block.report_count === 1 ? 'Issue' : 'Issues'}
                     </Badge>
-                    <span className="text-2xl font-bold text-muted-foreground">
-                      {block.need_score}
-                    </span>
+                    <Badge variant={getNeedScoreBadgeVariant(block.need_score)} className="text-xs">
+                      Need: {block.need_score}
+                    </Badge>
                   </div>
                   <Button
                     size="sm"
-                    className="w-full mt-4"
+                    className="w-full"
                     variant="outline"
                     onClick={(e) => {
                       e.stopPropagation();
@@ -199,9 +250,9 @@ const MapViewPage = () => {
 
   // NEIGHBORHOOD DETAIL MODE
   return (
-    <div className="min-h-screen bg-background">
+    <div className="flex flex-col h-screen bg-background overflow-hidden">
       {/* Header */}
-      <div className="border-b bg-card">
+      <div className="border-b bg-card flex-shrink-0">
         <div className="max-w-7xl mx-auto p-6">
           <Button
             variant="ghost"
@@ -227,7 +278,9 @@ const MapViewPage = () => {
         </div>
       </div>
 
-      <div className="max-w-7xl mx-auto p-6">
+      {/* Scrollable Content Area */}
+      <div className="flex-1 overflow-y-auto">
+        <div className="max-w-7xl mx-auto p-6">
         {/* Map Embed */}
         <Card className="mb-6 overflow-hidden">
           <CardContent className="p-0">
@@ -311,6 +364,7 @@ const MapViewPage = () => {
               ))}
             </div>
           )}
+        </div>
         </div>
       </div>
     </div>
