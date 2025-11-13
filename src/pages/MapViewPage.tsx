@@ -237,7 +237,7 @@ const MapViewPage = () => {
               style={{ border: 0 }}
               loading="lazy"
               referrerPolicy="no-referrer-when-downgrade"
-              src="https://www.google.com/maps/embed?pb=!1m18!1m12!1m3!1d190255.27350514407!2d-87.87810669179704!3d41.8337329!2m3!1f0!2f0!3f0!3m2!1i1024!2i768!4f13.1!3m3!1m2!1s0x880e2c3cd0f4cbed%3A0xafe0a6ad09c0c000!2sChicago%2C%20IL!5e0!3m2!1sen!2sus!4v1234567890"
+              src={`https://www.google.com/maps?q=${encodeURIComponent(selectedBlock.name + ' Chicago IL')}&output=embed`}
               title={`Map of ${selectedBlock.name}`}
             />
           </CardContent>
@@ -254,10 +254,10 @@ const MapViewPage = () => {
               </CardContent>
             </Card>
           ) : (
-            <div className="space-y-4">
+            <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
               {reports.map((report) => (
-                <Card key={report.id}>
-                  <CardContent className="p-6">
+                <Card key={report.id} className="flex flex-col">
+                  <CardContent className="p-6 flex-1">
                     <div className="flex items-start justify-between gap-4 mb-3">
                       <div className="flex items-center gap-2 flex-wrap">
                         <Badge variant="secondary">
@@ -272,15 +272,41 @@ const MapViewPage = () => {
                       </span>
                     </div>
                     
-                    <p className="text-base font-medium mb-2">
+                    <p className="text-base font-medium mb-3">
                       {report.description || "No description provided"}
                     </p>
                     
-                    <div className="flex items-center gap-2 text-sm text-muted-foreground">
-                      <span>Reported by</span>
-                      <span className="font-medium">{report.user?.display_name || "Anonymous"}</span>
+                    <div className="flex items-center justify-between gap-2">
+                      <div className="text-sm text-muted-foreground">
+                        <span>Reported by </span>
+                        <span className="font-medium">{report.user?.display_name || "Anonymous"}</span>
+                      </div>
+                      <Button
+                        size="sm"
+                        variant="outline"
+                        onClick={() => window.open(
+                          `https://www.google.com/maps?q=${report.lat},${report.lng}`,
+                          '_blank'
+                        )}
+                      >
+                        <MapPin className="h-4 w-4 mr-1" />
+                        View on Map
+                      </Button>
                     </div>
                   </CardContent>
+                  
+                  {/* Mini map preview */}
+                  <div className="border-t">
+                    <iframe
+                      width="100%"
+                      height="200"
+                      style={{ border: 0 }}
+                      loading="lazy"
+                      referrerPolicy="no-referrer-when-downgrade"
+                      src={`https://www.google.com/maps?q=${report.lat},${report.lng}&output=embed&z=16`}
+                      title={`Location of ${report.type}`}
+                    />
+                  </div>
                 </Card>
               ))}
             </div>
