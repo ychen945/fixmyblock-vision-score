@@ -39,27 +39,16 @@ const ReportIssue = () => {
   });
 
   useEffect(() => {
+    checkAuth();
     fetchBlocks();
     getCurrentLocation();
-    setupDemoLogin();
   }, []);
 
-  const setupDemoLogin = async () => {
-    // Check if already logged in
+  const checkAuth = async () => {
     const { data: { user } } = await supabase.auth.getUser();
-    
     if (!user) {
-      // Get first demo user and simulate login
-      const { data: demoUsers } = await supabase
-        .from("users")
-        .select("id, email")
-        .limit(1);
-      
-      if (demoUsers && demoUsers.length > 0) {
-        console.log("Demo user loaded:", demoUsers[0].email);
-        // Store demo user ID in session storage for this session
-        sessionStorage.setItem("demo_user_id", demoUsers[0].id);
-      }
+      navigate("/auth");
+      return;
     }
   };
 
@@ -268,35 +257,20 @@ const ReportIssue = () => {
     setLoading(true);
 
     try {
-      // Get current user or use demo user
+      // Get current authenticated user
       const { data: { user } } = await supabase.auth.getUser();
-      let userId = user?.id;
       
-      if (!userId) {
-        // Use demo user from session storage
-        userId = sessionStorage.getItem("demo_user_id");
-        
-        if (!userId) {
-          // Fallback: get first user
-          const { data: demoUsers } = await supabase
-            .from("users")
-            .select("id")
-            .limit(1);
-          
-          if (demoUsers && demoUsers.length > 0) {
-            userId = demoUsers[0].id;
-          }
-        }
-      }
-
-      if (!userId) {
+      if (!user) {
         toast({
-          title: "Error",
-          description: "Could not determine user",
+          title: "Authentication required",
+          description: "Please log in to submit a report",
           variant: "destructive",
         });
+        navigate("/auth");
         return;
       }
+
+      const userId = user.id;
 
       // Upload photo
       const photoUrl = await uploadPhoto(userId);
