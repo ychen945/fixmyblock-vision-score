@@ -36,27 +36,38 @@ Deno.serve(async (req) => {
       throw fetchError;
     }
 
-    console.log("Enriching report:", reportId);
+    console.log("Enriching report:", reportId, "with photo:", report.photo_url);
 
-    // Call OpenAI to analyze the report
+    // Validate photo URL exists
+    if (!report.photo_url) {
+      console.error("No photo URL found for report");
+      return new Response(
+        JSON.stringify({ 
+          success: false, 
+          error: "No photo URL found" 
+        }),
+        {
+          headers: { ...corsHeaders, "Content-Type": "application/json" },
+          status: 400,
+        }
+      );
+    }
+
+    // Call OpenAI Vision API to analyze the photo
     const openAIKey = Deno.env.get("OPENAI_API_KEY");
     if (!openAIKey) {
       console.error("OPENAI_API_KEY not configured");
       throw new Error("OpenAI API key not configured");
     }
 
-    const prompt = `Analyze this community issue report and provide insights:
-- Type: ${report.type}
-- Description: ${report.description || "No description provided"}
-- Location: (${report.lat}, ${report.lng})
+    const visionPrompt = `You are a vision model helping with civic infrastructure. The image shows a public issue on a city street or public space. Look at the image and classify the issue for a civic reporting app. Respond with ONLY valid JSON and no extra text.
 
-Please provide:
-1. Severity assessment (low, medium, high, critical)
-2. Suggested priority level
-3. Estimated resolution timeframe
-4. Any safety concerns
-
-Respond in JSON format with keys: severity, priority, timeframe, safety_concerns`;
+The JSON format must be:
+{
+  "category": "pothole|broken_light|trash|flooding|other",
+  "severity": "low|medium|high",
+  "short_description": "<one sentence, plain English>"
+}`;
 
     const response = await fetch("https://api.openai.com/v1/chat/completions", {
       method: "POST",
@@ -65,23 +76,43 @@ Respond in JSON format with keys: severity, priority, timeframe, safety_concerns
         "Content-Type": "application/json",
       },
       body: JSON.stringify({
-        model: "gpt-5-mini-2025-08-07",
+        model: "gpt-4o",
         messages: [
           {
-            role: "system",
-            content:
-              "You are an AI assistant that analyzes community issue reports and provides actionable insights for city maintenance teams.",
+            role: "user",
+            content: [
+              {
+                type: "text",
+                text: visionPrompt,
+              },
+              {
+                type: "image_url",
+                image_url: {
+                  url: report.photo_url,
+                },
+              },
+            ],
           },
-          { role: "user", content: prompt },
         ],
-        max_completion_tokens: 500,
+        max_tokens: 300,
       }),
     });
 
     if (!response.ok) {
       const errorText = await response.text();
       console.error("OpenAI API error:", response.status, errorText);
-      throw new Error(`OpenAI API error: ${response.status}`);
+      // Don't throw - log and return gracefully
+      return new Response(
+        JSON.stringify({ 
+          success: false, 
+          error: "OpenAI API error",
+          details: errorText 
+        }),
+        {
+          headers: { ...corsHeaders, "Content-Type": "application/json" },
+          status: 200, // Return 200 to not block the app
+        }
+      );
     }
 
     const aiResponse = await response.json();
@@ -92,22 +123,50 @@ Respond in JSON format with keys: severity, priority, timeframe, safety_concerns
     // Parse AI response
     let aiMetadata;
     try {
-      aiMetadata = JSON.parse(aiContent);
+      // Clean up response - remove markdown code blocks if present
+      let cleanedContent = aiContent.trim();
+      if (cleanedContent.startsWith("```json")) {
+        cleanedContent = cleanedContent.replace(/```json\n?/g, "").replace(/```\n?/g, "");
+      } else if (cleanedContent.startsWith("```")) {
+        cleanedContent = cleanedContent.replace(/```\n?/g, "");
+      }
+      
+      aiMetadata = JSON.parse(cleanedContent);
+      
+      // Validate the structure
+      if (!aiMetadata.category || !aiMetadata.severity || !aiMetadata.short_description) {
+        throw new Error("Invalid AI response structure");
+      }
     } catch (e) {
       console.error("Failed to parse AI response as JSON:", e);
+      console.error("Raw content:", aiContent);
       aiMetadata = {
-        raw_response: aiContent,
+        category: "other",
         severity: "medium",
-        priority: "normal",
-        timeframe: "unknown",
-        safety_concerns: "Unable to parse AI response",
+        short_description: report.description || "Unable to analyze image",
+        raw_response: aiContent,
+        parse_error: e instanceof Error ? e.message : "Unknown error",
       };
+    }
+
+    // Prepare update data
+    const updateData: any = { ai_metadata: aiMetadata };
+
+    // Update type if it's "other" or missing and we have a valid category
+    const validCategories = ["pothole", "broken_light", "trash", "flooding", "other"];
+    if (
+      aiMetadata.category &&
+      validCategories.includes(aiMetadata.category) &&
+      (!report.type || report.type === "other")
+    ) {
+      updateData.type = aiMetadata.category;
+      console.log(`Updating report type from "${report.type}" to "${aiMetadata.category}"`);
     }
 
     // Update the report with AI metadata
     const { error: updateError } = await supabase
       .from("reports")
-      .update({ ai_metadata: aiMetadata })
+      .update(updateData)
       .eq("id", reportId);
 
     if (updateError) {
@@ -126,13 +185,15 @@ Respond in JSON format with keys: severity, priority, timeframe, safety_concerns
     );
   } catch (error) {
     console.error("Error in enrich-report function:", error);
+    // Return success with error info to not block the app
     return new Response(
       JSON.stringify({
+        success: false,
         error: error instanceof Error ? error.message : "Unknown error",
       }),
       {
         headers: { ...corsHeaders, "Content-Type": "application/json" },
-        status: 500,
+        status: 200, // Return 200 to not block the app
       }
     );
   }
