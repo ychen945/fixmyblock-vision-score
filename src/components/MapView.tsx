@@ -1,10 +1,23 @@
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { useNavigate } from "react-router-dom";
 import { Card } from "@/components/ui/card";
 import { MapContainer, TileLayer, Marker, Popup } from 'react-leaflet';
 import L from 'leaflet';
+
+// Fix for default marker icon in react-leaflet
+import icon from 'leaflet/dist/images/marker-icon.png';
+import iconShadow from 'leaflet/dist/images/marker-shadow.png';
+
+let DefaultIcon = L.icon({
+  iconUrl: icon,
+  shadowUrl: iconShadow,
+  iconSize: [25, 41],
+  iconAnchor: [12, 41],
+});
+
+L.Marker.prototype.options.icon = DefaultIcon;
 
 interface Report {
   id: string;
@@ -60,7 +73,6 @@ const createCustomIcon = (type: string) => {
 
 const MapView = ({ reports }: MapViewProps) => {
   const navigate = useNavigate();
-  const [selectedReport, setSelectedReport] = useState<Report | null>(null);
 
   // Center on Chicago
   const chicagoCenter: [number, number] = [41.8781, -87.6298];
@@ -83,9 +95,6 @@ const MapView = ({ reports }: MapViewProps) => {
             key={report.id}
             position={[report.lat, report.lng]}
             icon={createCustomIcon(report.type)}
-            eventHandlers={{
-              click: () => setSelectedReport(report),
-            }}
           >
             <Popup>
               <div className="min-w-[200px]">
@@ -119,47 +128,6 @@ const MapView = ({ reports }: MapViewProps) => {
           </Marker>
         ))}
       </MapContainer>
-
-      {/* Optional: Floating card for selected report (alternative to popup) */}
-      {selectedReport && false && (
-        <Card className="absolute bottom-4 left-1/2 transform -translate-x-1/2 p-4 min-w-[280px] shadow-xl z-[1000]">
-          <div className="flex justify-between items-start mb-2">
-            <div className="flex items-center gap-2">
-              <Badge variant="secondary">{selectedReport.type.replace("_", " ")}</Badge>
-              <Badge variant={selectedReport.status === "open" ? "destructive" : "default"}>
-                {selectedReport.status}
-              </Badge>
-            </div>
-            <Button
-              variant="ghost"
-              size="sm"
-              onClick={() => setSelectedReport(null)}
-              className="h-6 w-6 p-0"
-            >
-              ✕
-            </Button>
-          </div>
-          <p className="text-sm font-medium mb-1">
-            {selectedReport.block?.name || "Unknown location"}
-          </p>
-          <p className="text-sm text-muted-foreground mb-2">
-            {selectedReport.description || "No description"}
-          </p>
-          <p className="text-xs text-muted-foreground mb-3">
-            👍 {selectedReport.upvote_count} {selectedReport.upvote_count === 1 ? "person" : "people"} see this
-          </p>
-          {selectedReport.block && (
-            <Button
-              size="sm"
-              variant="outline"
-              className="w-full"
-              onClick={() => navigate(`/block/${selectedReport.block!.slug}`)}
-            >
-              View this block
-            </Button>
-          )}
-        </Card>
-      )}
     </div>
   );
 };
