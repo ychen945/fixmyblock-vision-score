@@ -1,27 +1,11 @@
 import { useState, useEffect } from "react";
-import { MapContainer, TileLayer, Circle, Marker, Popup, useMap } from "react-leaflet";
 import { supabase } from "@/integrations/supabase/client";
 import { Button } from "@/components/ui/button";
-import { Card, CardContent } from "@/components/ui/card";
+import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
-import { ArrowLeft, Loader2 } from "lucide-react";
+import { ArrowLeft, Loader2, MapPin } from "lucide-react";
 import { toast } from "sonner";
 import { formatDistanceToNow } from "date-fns";
-import L from "leaflet";
-import "leaflet/dist/leaflet.css";
-
-// Fix default marker icon
-import icon from "leaflet/dist/images/marker-icon.png";
-import iconShadow from "leaflet/dist/images/marker-shadow.png";
-
-const DefaultIcon = L.icon({
-  iconUrl: icon,
-  shadowUrl: iconShadow,
-  iconSize: [25, 41],
-  iconAnchor: [12, 41],
-});
-
-L.Marker.prototype.options.icon = DefaultIcon;
 
 interface Block {
   id: string;
@@ -42,132 +26,6 @@ interface Report {
   user: {
     display_name: string;
   };
-}
-
-// Chicago neighborhoods with approximate center coordinates
-const NEIGHBORHOOD_CENTERS: Record<string, { lat: number; lng: number }> = {
-  "loop": { lat: 41.8830, lng: -87.6320 },
-  "river-north": { lat: 41.8940, lng: -87.6319 },
-  "lincoln-park": { lat: 41.9150, lng: -87.6450 },
-  "wicker-park": { lat: 41.9125, lng: -87.6775 },
-  "logan-square": { lat: 41.9275, lng: -87.6950 },
-  "pilsen": { lat: 41.8550, lng: -87.6650 },
-  "bridgeport": { lat: 41.8400, lng: -87.6475 },
-  "hyde-park": { lat: 41.7950, lng: -87.5975 },
-  "south-loop": { lat: 41.8650, lng: -87.6299 },
-  "west-loop": { lat: 41.8825, lng: -87.6524 },
-  "gold-coast": { lat: 41.9025, lng: -87.6275 },
-  "old-town": { lat: 41.9125, lng: -87.6375 },
-  "lakeview": { lat: 41.9425, lng: -87.6500 },
-  "andersonville": { lat: 41.9825, lng: -87.6625 },
-  "uptown": { lat: 41.9675, lng: -87.6575 },
-};
-
-const CHICAGO_CENTER: [number, number] = [41.8781, -87.6298];
-
-// Helper component to change map view
-function ChangeView({ center, zoom }: { center: [number, number]; zoom: number }) {
-  const map = useMap();
-  useEffect(() => {
-    map.setView(center, zoom);
-  }, [center, zoom, map]);
-  return null;
-}
-
-// MapContent component to properly handle context
-function MapContent({ 
-  selectedBlock, 
-  blocks, 
-  reports,
-  setSelectedBlock,
-  getCircleColor 
-}: {
-  selectedBlock: Block | null;
-  blocks: Block[];
-  reports: Report[];
-  setSelectedBlock: (block: Block) => void;
-  getCircleColor: (score: number) => string;
-}) {
-  const mapCenter: [number, number] = selectedBlock && NEIGHBORHOOD_CENTERS[selectedBlock.slug]
-    ? [NEIGHBORHOOD_CENTERS[selectedBlock.slug].lat, NEIGHBORHOOD_CENTERS[selectedBlock.slug].lng]
-    : CHICAGO_CENTER;
-  
-  const mapZoom = selectedBlock ? 14 : 11;
-
-  return (
-    <>
-      <ChangeView center={mapCenter} zoom={mapZoom} />
-      
-      <TileLayer
-        attribution='&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors'
-        url="https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png"
-      />
-
-      {/* LEVEL 1: City View - Show neighborhood circles */}
-      {!selectedBlock && blocks.map((block) => {
-        const center = NEIGHBORHOOD_CENTERS[block.slug];
-        if (!center) return null;
-
-        return (
-          <Circle
-            key={block.id}
-            center={[center.lat, center.lng]}
-            radius={800}
-            pathOptions={{
-              fillColor: getCircleColor(block.need_score),
-              fillOpacity: 0.5,
-              color: getCircleColor(block.need_score),
-              weight: 2,
-            }}
-            eventHandlers={{
-              click: () => setSelectedBlock(block),
-            }}
-          >
-            <Popup>
-              <div className="min-w-[180px]">
-                <h3 className="font-semibold mb-1">{block.name}</h3>
-                <p className="text-sm text-muted-foreground mb-2">
-                  Community Need Score: {block.need_score}
-                </p>
-                <Button
-                  size="sm"
-                  onClick={() => setSelectedBlock(block)}
-                  className="w-full"
-                >
-                  View issues here
-                </Button>
-              </div>
-            </Popup>
-          </Circle>
-        );
-      })}
-
-      {/* LEVEL 2: Neighborhood Detail - Show individual report pins */}
-      {selectedBlock && reports.map((report) => (
-        <Marker key={report.id} position={[report.lat, report.lng]}>
-          <Popup>
-            <div className="min-w-[200px]">
-              <div className="flex items-center gap-2 mb-2">
-                <Badge variant="secondary">{report.type.replace("_", " ")}</Badge>
-                <Badge variant={report.status === "open" ? "destructive" : "default"}>
-                  {report.status}
-                </Badge>
-              </div>
-              <p className="text-sm font-medium mb-1">
-                {report.description || "No description"}
-              </p>
-              <p className="text-xs text-muted-foreground mb-1">
-                Reported by {report.user?.display_name || "Anonymous"}
-              </p>
-              <p className="text-xs text-muted-foreground">
-                {formatDistanceToNow(new Date(report.created_at), { addSuffix: true })}
-              </p>
-            </div>
-          </Popup>
-        </Marker>
-      ))}
-    </>
-  );
 }
 
 const MapViewPage = () => {
@@ -196,7 +54,7 @@ const MapViewPage = () => {
       if (error) throw error;
       setBlocks(data || []);
     } catch (error: any) {
-      toast.error("Failed to load blocks: " + error.message);
+      toast.error("Failed to load neighborhoods: " + error.message);
     } finally {
       setLoading(false);
     }
@@ -234,10 +92,22 @@ const MapViewPage = () => {
     }
   };
 
-  const getCircleColor = (needScore: number): string => {
-    if (needScore <= 30) return "#10b981"; // green
-    if (needScore <= 70) return "#f59e0b"; // yellow/orange
-    return "#ef4444"; // red
+  const getNeedScoreColor = (score: number): string => {
+    if (score <= 30) return "bg-green-500/20 border-green-500/50 hover:bg-green-500/30";
+    if (score <= 70) return "bg-yellow-500/20 border-yellow-500/50 hover:bg-yellow-500/30";
+    return "bg-red-500/20 border-red-500/50 hover:bg-red-500/30";
+  };
+
+  const getNeedScoreBadgeVariant = (score: number): "default" | "secondary" | "destructive" => {
+    if (score <= 30) return "secondary";
+    if (score <= 70) return "default";
+    return "destructive";
+  };
+
+  const getNeedScoreLabel = (score: number): string => {
+    if (score <= 30) return "Low Need";
+    if (score <= 70) return "Medium Need";
+    return "High Need";
   };
 
   const handleBackToCity = () => {
@@ -253,65 +123,170 @@ const MapViewPage = () => {
     );
   }
 
-  return (
-    <div className="relative h-screen w-full">
-      {/* Map Legend */}
-      <Card className="absolute top-4 right-4 z-[1000] shadow-lg">
-        <CardContent className="p-3">
-          <div className="text-sm font-semibold mb-2">Community Need</div>
-          <div className="space-y-1 text-xs">
-            <div className="flex items-center gap-2">
-              <div className="w-4 h-4 rounded-full bg-green-500" />
-              <span>Low (0-30)</span>
-            </div>
-            <div className="flex items-center gap-2">
-              <div className="w-4 h-4 rounded-full bg-yellow-500" />
-              <span>Medium (31-70)</span>
-            </div>
-            <div className="flex items-center gap-2">
-              <div className="w-4 h-4 rounded-full bg-red-500" />
-              <span>High (71+)</span>
-            </div>
+  // CITY OVERVIEW MODE
+  if (!selectedBlock) {
+    return (
+      <div className="min-h-screen bg-background p-6">
+        <div className="max-w-7xl mx-auto">
+          <div className="mb-8">
+            <h1 className="text-4xl font-bold mb-2">Chicago Neighborhoods</h1>
+            <p className="text-muted-foreground">Community Need Overview</p>
           </div>
-        </CardContent>
-      </Card>
 
-      {/* Back button when viewing neighborhood detail */}
-      {selectedBlock && (
-        <Card className="absolute top-4 left-4 z-[1000] shadow-lg">
-          <CardContent className="p-3">
-            <Button
-              variant="ghost"
-              size="sm"
-              onClick={handleBackToCity}
-              className="flex items-center gap-2"
-            >
-              <ArrowLeft className="h-4 w-4" />
-              Back to City View
-            </Button>
-            <div className="mt-2 font-semibold">{selectedBlock.name}</div>
-            <div className="text-sm text-muted-foreground">
-              {reports.length} {reports.length === 1 ? "issue" : "issues"}
+          {/* Legend */}
+          <Card className="mb-6">
+            <CardContent className="p-4">
+              <div className="flex flex-wrap gap-4 items-center">
+                <span className="font-semibold text-sm">Need Level:</span>
+                <div className="flex items-center gap-2">
+                  <div className="w-4 h-4 rounded-full bg-green-500" />
+                  <span className="text-sm">Low (0-30)</span>
+                </div>
+                <div className="flex items-center gap-2">
+                  <div className="w-4 h-4 rounded-full bg-yellow-500" />
+                  <span className="text-sm">Medium (31-70)</span>
+                </div>
+                <div className="flex items-center gap-2">
+                  <div className="w-4 h-4 rounded-full bg-red-500" />
+                  <span className="text-sm">High (71+)</span>
+                </div>
+              </div>
+            </CardContent>
+          </Card>
+
+          {/* Neighborhood Grid */}
+          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-4">
+            {blocks.map((block) => (
+              <Card
+                key={block.id}
+                className={`cursor-pointer transition-all border-2 ${getNeedScoreColor(block.need_score)}`}
+                onClick={() => setSelectedBlock(block)}
+              >
+                <CardHeader className="pb-3">
+                  <CardTitle className="text-lg flex items-start justify-between gap-2">
+                    <span>{block.name}</span>
+                    <MapPin className="h-5 w-5 text-muted-foreground flex-shrink-0" />
+                  </CardTitle>
+                </CardHeader>
+                <CardContent>
+                  <div className="flex items-center justify-between">
+                    <Badge variant={getNeedScoreBadgeVariant(block.need_score)}>
+                      {getNeedScoreLabel(block.need_score)}
+                    </Badge>
+                    <span className="text-2xl font-bold text-muted-foreground">
+                      {block.need_score}
+                    </span>
+                  </div>
+                  <Button
+                    size="sm"
+                    className="w-full mt-4"
+                    variant="outline"
+                    onClick={(e) => {
+                      e.stopPropagation();
+                      setSelectedBlock(block);
+                    }}
+                  >
+                    View Details
+                  </Button>
+                </CardContent>
+              </Card>
+            ))}
+          </div>
+        </div>
+      </div>
+    );
+  }
+
+  // NEIGHBORHOOD DETAIL MODE
+  return (
+    <div className="min-h-screen bg-background">
+      {/* Header */}
+      <div className="border-b bg-card">
+        <div className="max-w-7xl mx-auto p-6">
+          <Button
+            variant="ghost"
+            size="sm"
+            onClick={handleBackToCity}
+            className="mb-4"
+          >
+            <ArrowLeft className="h-4 w-4 mr-2" />
+            Back to City View
+          </Button>
+          
+          <div className="flex items-center justify-between flex-wrap gap-4">
+            <div>
+              <h1 className="text-3xl font-bold">{selectedBlock.name}</h1>
+              <p className="text-muted-foreground mt-1">
+                {reports.length} {reports.length === 1 ? "issue" : "issues"} reported
+              </p>
             </div>
+            <Badge variant={getNeedScoreBadgeVariant(selectedBlock.need_score)} className="text-lg px-4 py-2">
+              {getNeedScoreLabel(selectedBlock.need_score)}: {selectedBlock.need_score}
+            </Badge>
+          </div>
+        </div>
+      </div>
+
+      <div className="max-w-7xl mx-auto p-6">
+        {/* Map Embed */}
+        <Card className="mb-6 overflow-hidden">
+          <CardContent className="p-0">
+            <iframe
+              width="100%"
+              height="400"
+              style={{ border: 0 }}
+              loading="lazy"
+              referrerPolicy="no-referrer-when-downgrade"
+              src="https://www.google.com/maps/embed?pb=!1m18!1m12!1m3!1d190255.27350514407!2d-87.87810669179704!3d41.8337329!2m3!1f0!2f0!3f0!3m2!1i1024!2i768!4f13.1!3m3!1m2!1s0x880e2c3cd0f4cbed%3A0xafe0a6ad09c0c000!2sChicago%2C%20IL!5e0!3m2!1sen!2sus!4v1234567890"
+              title={`Map of ${selectedBlock.name}`}
+            />
           </CardContent>
         </Card>
-      )}
 
-      {/* Leaflet Map */}
-      <MapContainer
-        center={CHICAGO_CENTER}
-        zoom={11}
-        style={{ height: "100%", width: "100%" }}
-        scrollWheelZoom={true}
-      >
-        <MapContent
-          selectedBlock={selectedBlock}
-          blocks={blocks}
-          reports={reports}
-          setSelectedBlock={setSelectedBlock}
-          getCircleColor={getCircleColor}
-        />
-      </MapContainer>
+        {/* Reports List */}
+        <div>
+          <h2 className="text-2xl font-bold mb-4">Community Issues</h2>
+          
+          {reports.length === 0 ? (
+            <Card>
+              <CardContent className="p-8 text-center">
+                <p className="text-muted-foreground">No issues reported in this neighborhood yet.</p>
+              </CardContent>
+            </Card>
+          ) : (
+            <div className="space-y-4">
+              {reports.map((report) => (
+                <Card key={report.id}>
+                  <CardContent className="p-6">
+                    <div className="flex items-start justify-between gap-4 mb-3">
+                      <div className="flex items-center gap-2 flex-wrap">
+                        <Badge variant="secondary">
+                          {report.type.replace("_", " ")}
+                        </Badge>
+                        <Badge variant={report.status === "open" ? "destructive" : "default"}>
+                          {report.status}
+                        </Badge>
+                      </div>
+                      <span className="text-sm text-muted-foreground whitespace-nowrap">
+                        {formatDistanceToNow(new Date(report.created_at), { addSuffix: true })}
+                      </span>
+                    </div>
+                    
+                    <p className="text-base font-medium mb-2">
+                      {report.description || "No description provided"}
+                    </p>
+                    
+                    <div className="flex items-center gap-2 text-sm text-muted-foreground">
+                      <span>Reported by</span>
+                      <span className="font-medium">{report.user?.display_name || "Anonymous"}</span>
+                    </div>
+                  </CardContent>
+                </Card>
+              ))}
+            </div>
+          )}
+        </div>
+      </div>
     </div>
   );
 };
