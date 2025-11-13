@@ -116,33 +116,100 @@ const ReportIssue = () => {
   };
 
   const detectBlock = async (lat: number, lng: number) => {
-    // Simple block detection based on Chicago coordinates
-    // In a real app, you'd use reverse geocoding or a proper block boundary API
+    // Auto-detect Chicago block/neighborhood based on coordinates
     if (blocks.length === 0) return;
 
-    // For now, assign a block based on quadrant
+    // More accurate Chicago neighborhood boundaries
     let detectedBlock;
-    if (lng < -87.65) {
-      detectedBlock = blocks.find(b => b.slug === "west-loop") || blocks[0];
-    } else if (lng >= -87.65 && lat > 41.9) {
-      detectedBlock = blocks.find(b => b.slug === "lincoln-park") || blocks[0];
-    } else if (lng >= -87.65 && lat <= 41.9 && lat > 41.85) {
-      detectedBlock = blocks.find(b => b.slug === "loop") || blocks[0];
-    } else {
-      detectedBlock = blocks.find(b => b.slug === "south-loop") || blocks[0];
+    
+    // The Loop (Downtown) - 41.8781 to 41.8881, -87.6398 to -87.6238
+    if (lat >= 41.8781 && lat <= 41.8881 && lng >= -87.6398 && lng <= -87.6238) {
+      detectedBlock = blocks.find(b => b.slug === "loop");
+    }
+    // River North - 41.8881 to 41.9000, -87.6398 to -87.6238
+    else if (lat >= 41.8881 && lat <= 41.9000 && lng >= -87.6398 && lng <= -87.6238) {
+      detectedBlock = blocks.find(b => b.slug === "river-north");
+    }
+    // Lincoln Park - 41.9000 to 41.9300, -87.6600 to -87.6300
+    else if (lat >= 41.9000 && lat <= 41.9300 && lng >= -87.6600 && lng <= -87.6300) {
+      detectedBlock = blocks.find(b => b.slug === "lincoln-park");
+    }
+    // Wicker Park - 41.9050 to 41.9200, -87.6900 to -87.6650
+    else if (lat >= 41.9050 && lat <= 41.9200 && lng >= -87.6900 && lng <= -87.6650) {
+      detectedBlock = blocks.find(b => b.slug === "wicker-park");
+    }
+    // Logan Square - 41.9200 to 41.9350, -87.7100 to -87.6800
+    else if (lat >= 41.9200 && lat <= 41.9350 && lng >= -87.7100 && lng <= -87.6800) {
+      detectedBlock = blocks.find(b => b.slug === "logan-square");
+    }
+    // West Loop - 41.8750 to 41.8900, -87.6650 to -87.6398
+    else if (lat >= 41.8750 && lat <= 41.8900 && lng >= -87.6650 && lng <= -87.6398) {
+      detectedBlock = blocks.find(b => b.slug === "west-loop");
+    }
+    // Gold Coast - 41.8900 to 41.9150, -87.6350 to -87.6200
+    else if (lat >= 41.8900 && lat <= 41.9150 && lng >= -87.6350 && lng <= -87.6200) {
+      detectedBlock = blocks.find(b => b.slug === "gold-coast");
+    }
+    // Old Town - 41.9050 to 41.9200, -87.6450 to -87.6300
+    else if (lat >= 41.9050 && lat <= 41.9200 && lng >= -87.6450 && lng <= -87.6300) {
+      detectedBlock = blocks.find(b => b.slug === "old-town");
+    }
+    // Lakeview - 41.9300 to 41.9550, -87.6600 to -87.6400
+    else if (lat >= 41.9300 && lat <= 41.9550 && lng >= -87.6600 && lng <= -87.6400) {
+      detectedBlock = blocks.find(b => b.slug === "lakeview");
+    }
+    // South Loop - 41.8550 to 41.8750, -87.6398 to -87.6200
+    else if (lat >= 41.8550 && lat <= 41.8750 && lng >= -87.6398 && lng <= -87.6200) {
+      detectedBlock = blocks.find(b => b.slug === "south-loop");
+    }
+    // Pilsen - 41.8450 to 41.8650, -87.6800 to -87.6500
+    else if (lat >= 41.8450 && lat <= 41.8650 && lng >= -87.6800 && lng <= -87.6500) {
+      detectedBlock = blocks.find(b => b.slug === "pilsen");
+    }
+    // Bridgeport - 41.8300 to 41.8500, -87.6600 to -87.6350
+    else if (lat >= 41.8300 && lat <= 41.8500 && lng >= -87.6600 && lng <= -87.6350) {
+      detectedBlock = blocks.find(b => b.slug === "bridgeport");
+    }
+    // Hyde Park - 41.7850 to 41.8050, -87.6100 to -87.5850
+    else if (lat >= 41.7850 && lat <= 41.8050 && lng >= -87.6100 && lng <= -87.5850) {
+      detectedBlock = blocks.find(b => b.slug === "hyde-park");
+    }
+    // Andersonville - 41.9750 to 41.9900, -87.6700 to -87.6550
+    else if (lat >= 41.9750 && lat <= 41.9900 && lng >= -87.6700 && lng <= -87.6550) {
+      detectedBlock = blocks.find(b => b.slug === "andersonville");
+    }
+    // Uptown - 41.9600 to 41.9750, -87.6650 to -87.6500
+    else if (lat >= 41.9600 && lat <= 41.9750 && lng >= -87.6650 && lng <= -87.6500) {
+      detectedBlock = blocks.find(b => b.slug === "uptown");
     }
 
-    if (detectedBlock) {
+    // Fallback to nearest block or first one
+    if (!detectedBlock) {
+      detectedBlock = blocks[0];
+    }
+
+    if (detectedBlock && detectedBlock.id !== formData.block_id) {
       setFormData(prev => ({
         ...prev,
         block_id: detectedBlock.id,
       }));
       toast({
-        title: "Block detected",
+        title: "📍 Block detected",
         description: `Assigned to ${detectedBlock.name}`,
       });
     }
   };
+
+  // Re-detect block when lat/lng changes
+  useEffect(() => {
+    if (formData.lat && formData.lng && blocks.length > 0) {
+      const lat = parseFloat(formData.lat);
+      const lng = parseFloat(formData.lng);
+      if (!isNaN(lat) && !isNaN(lng)) {
+        detectBlock(lat, lng);
+      }
+    }
+  }, [formData.lat, formData.lng, blocks]);
 
   const handlePhotoChange = async (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
