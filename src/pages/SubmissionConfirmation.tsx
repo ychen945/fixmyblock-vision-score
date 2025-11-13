@@ -2,9 +2,9 @@ import { useEffect, useState } from "react";
 import { useParams, useNavigate } from "react-router-dom";
 import { supabase } from "@/integrations/supabase/client";
 import { Button } from "@/components/ui/button";
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
+import { Card, CardContent } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
-import { Loader2, CheckCircle, Home, Share2 } from "lucide-react";
+import { Loader2, CheckCircle, Home, Share2, Copy } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
 
 const SubmissionConfirmation = () => {
@@ -46,21 +46,46 @@ const SubmissionConfirmation = () => {
     }
   };
 
-  const handleShare = () => {
+  const getShareText = () => {
+    if (!report) return "";
+    
+    const blockPageUrl = `${window.location.origin}/block/${report.block?.slug}`;
+    return `I just reported a ${report.type.replace("_", " ")} issue on FixMyBlock for ${report.block?.name || "my block"}. Check our block's Need Score here: ${blockPageUrl}`;
+  };
+
+  const handleShare = async () => {
+    const shareText = getShareText();
+    
+    // Try native share API first (mobile)
     if (navigator.share) {
-      navigator.share({
-        title: "Community Report Submitted",
-        text: `I just reported a ${report?.type.replace("_", " ")} in my neighborhood!`,
-        url: window.location.href,
-      }).catch(() => {
-        // User cancelled sharing
-      });
+      try {
+        await navigator.share({
+          title: "FixMyBlock Report",
+          text: shareText,
+        });
+        toast({
+          title: "Shared successfully",
+          description: "Thanks for spreading the word!",
+        });
+      } catch (error) {
+        // User cancelled or error occurred
+        console.log("Share cancelled or failed:", error);
+      }
     } else {
-      toast({
-        title: "Link copied",
-        description: "Report link copied to clipboard",
-      });
-      navigator.clipboard.writeText(window.location.href);
+      // Fallback to clipboard
+      try {
+        await navigator.clipboard.writeText(shareText);
+        toast({
+          title: "Copied to clipboard",
+          description: "Share text copied! Paste it on your social media.",
+        });
+      } catch (error) {
+        toast({
+          title: "Error",
+          description: "Failed to copy to clipboard",
+          variant: "destructive",
+        });
+      }
     }
   };
 
@@ -76,14 +101,9 @@ const SubmissionConfirmation = () => {
     return (
       <div className="min-h-screen bg-background flex items-center justify-center p-4">
         <Card className="max-w-md">
-          <CardHeader>
-            <CardTitle>Report Not Found</CardTitle>
-            <CardDescription>
-              The report you're looking for doesn't exist or has been removed.
-            </CardDescription>
-          </CardHeader>
-          <CardContent>
-            <Button onClick={() => navigate("/home")} className="w-full">
+          <CardContent className="pt-6">
+            <p className="text-center text-muted-foreground">Report not found</p>
+            <Button onClick={() => navigate("/home")} className="w-full mt-4">
               <Home className="mr-2 h-4 w-4" />
               Back to Home
             </Button>
@@ -93,88 +113,83 @@ const SubmissionConfirmation = () => {
     );
   }
 
+  const formatDate = (dateString: string) => {
+    return new Date(dateString).toLocaleDateString("en-US", {
+      month: "long",
+      day: "numeric",
+      year: "numeric",
+      hour: "numeric",
+      minute: "2-digit",
+    });
+  };
+
   return (
     <div className="min-h-screen bg-background p-4">
-      <div className="max-w-2xl mx-auto space-y-6">
-        {/* Success Card */}
-        <Card className="border-primary/20 bg-primary/5">
-          <CardContent className="pt-6 text-center">
-            <div className="flex justify-center mb-4">
-              <CheckCircle className="h-16 w-16 text-primary" />
-            </div>
-            <h1 className="text-2xl font-bold mb-2">Report Submitted Successfully!</h1>
-            <p className="text-muted-foreground">
-              Thank you for helping improve your community. Your report has been logged
-              and will be reviewed by local authorities.
+      <div className="max-w-2xl mx-auto space-y-6 py-8">
+        {/* Success Message */}
+        <div className="text-center space-y-4">
+          <div className="flex justify-center">
+            <CheckCircle className="h-20 w-20 text-primary" strokeWidth={1.5} />
+          </div>
+          <div>
+            <h1 className="text-3xl font-bold mb-3">Submitted!</h1>
+            <p className="text-lg text-muted-foreground max-w-lg mx-auto">
+              This has been validated as a real issue and will be forwarded to civic authorities.
             </p>
-          </CardContent>
-        </Card>
+          </div>
+        </div>
 
-        {/* Report Details Card */}
+        {/* Report Summary Card */}
         <Card>
-          <CardHeader>
-            <CardTitle>Report Details</CardTitle>
-          </CardHeader>
-          <CardContent className="space-y-4">
-            {report.photo_url && (
-              <img
-                src={report.photo_url}
-                alt="Report photo"
-                className="w-full h-64 object-cover rounded-lg border"
-              />
-            )}
-
-            <div className="grid grid-cols-2 gap-4">
+          <CardContent className="pt-6 space-y-4">
+            <div className="space-y-3">
               <div>
                 <p className="text-sm text-muted-foreground">Issue Type</p>
-                <Badge className="mt-1">{report.type.replace("_", " ")}</Badge>
+                <div className="mt-1">
+                  <Badge variant="secondary" className="text-base px-3 py-1">
+                    {report.type.replace("_", " ")}
+                  </Badge>
+                </div>
               </div>
+
               <div>
-                <p className="text-sm text-muted-foreground">Status</p>
-                <Badge variant="destructive" className="mt-1">
-                  {report.status}
-                </Badge>
+                <p className="text-sm text-muted-foreground">Location</p>
+                <p className="text-lg font-medium mt-1">
+                  {report.block?.name || "Unknown location"}
+                </p>
               </div>
-            </div>
 
-            <div>
-              <p className="text-sm text-muted-foreground">Location</p>
-              <p className="font-medium">{report.block?.name || "Unknown location"}</p>
-              <p className="text-sm text-muted-foreground mt-1">
-                {report.lat.toFixed(6)}, {report.lng.toFixed(6)}
-              </p>
-            </div>
-
-            {report.description && (
               <div>
-                <p className="text-sm text-muted-foreground">Description</p>
-                <p className="mt-1">{report.description}</p>
+                <p className="text-sm text-muted-foreground">Submitted</p>
+                <p className="font-medium mt-1">{formatDate(report.created_at)}</p>
               </div>
-            )}
-
-            {report.ai_metadata && (
-              <div className="bg-muted/50 p-4 rounded-lg">
-                <p className="text-sm text-muted-foreground mb-2">AI Analysis</p>
-                <p className="text-sm">{JSON.stringify(report.ai_metadata, null, 2)}</p>
-              </div>
-            )}
-
-            <div>
-              <p className="text-sm text-muted-foreground">Reported by</p>
-              <p className="font-medium">{report.user?.display_name || "Anonymous"}</p>
             </div>
           </CardContent>
         </Card>
 
-        {/* Actions */}
-        <div className="grid grid-cols-2 gap-4">
-          <Button variant="outline" onClick={handleShare}>
-            <Share2 className="mr-2 h-4 w-4" />
-            Share
-          </Button>
-          <Button onClick={() => navigate("/home")}>
-            <Home className="mr-2 h-4 w-4" />
+        {/* Action Buttons */}
+        <div className="space-y-3">
+          <Button 
+            onClick={() => navigate("/home")} 
+            className="w-full"
+            size="lg"
+          >
+            <Home className="mr-2 h-5 w-5" />
             Back to Home
+          </Button>
+          
+          <Button 
+            onClick={handleShare}
+            variant="outline"
+            className="w-full"
+            size="lg"
+          >
+            {navigator.share ? (
+              <Share2 className="mr-2 h-5 w-5" />
+            ) : (
+              <Copy className="mr-2 h-5 w-5" />
+            )}
+            {navigator.share ? "Share on Social" : "Copy Share Text"}
           </Button>
         </div>
       </div>
