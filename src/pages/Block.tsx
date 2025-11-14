@@ -54,6 +54,35 @@ const ISSUE_FILTER_OPTIONS = [
   { value: "transportation_streets", label: "Transportation & Streets" },
 ];
 
+const computeNeedScore = (reports: BlockReport[]): number => {
+  if (reports.length === 0) return 10;
+
+  const totalReports = reports.length;
+  const openReports = reports.filter((r) => r.status !== "resolved").length;
+  const upvoteSum = reports.reduce((sum, report) => sum + report.upvotes.length, 0);
+  const avgUpvotes = totalReports ? upvoteSum / totalReports : 0;
+
+  const resolvedReports = reports.filter((report) => report.status === "resolved" && report.resolved_at);
+  const resolutionRate = totalReports ? resolvedReports.length / totalReports : 0;
+
+  const resolutionDurations = resolvedReports.map((report) => {
+    const resolvedAt = new Date(report.resolved_at!).getTime();
+    const createdAt = new Date(report.created_at).getTime();
+    return Math.max(0, resolvedAt - createdAt);
+  });
+  const avgResolutionHours = resolutionDurations.length
+    ? resolutionDurations.reduce((sum, duration) => sum + duration, 0) / resolutionDurations.length / (1000 * 60 * 60)
+    : 72;
+
+  const volumeScore = Math.min(30, (totalReports / 15) * 30);
+  const openScore = Math.min(25, (openReports / Math.max(totalReports, 1)) * 25);
+  const upvoteScore = Math.min(20, (avgUpvotes / 5) * 20);
+  const resolutionRateScore = Math.min(15, (1 - resolutionRate) * 15);
+  const speedScore = Math.min(10, (avgResolutionHours / 72) * 10);
+
+  return Math.round(Math.max(0, Math.min(100, volumeScore + openScore + upvoteScore + resolutionRateScore + speedScore)));
+};
+
 const Block = () => {
   const { slug } = useParams<{ slug: string }>();
   const navigate = useNavigate();
@@ -293,6 +322,8 @@ const Block = () => {
     }, 3000);
   };
 
+  const needScore = useMemo(() => computeNeedScore(reports), [reports]);
+
 
   if (loading) {
     return (
@@ -318,11 +349,11 @@ const Block = () => {
     );
   }
 
-  const resolutionRateDemo = Math.min(98, Math.max(45, 100 - Math.round(block.need_score * 0.7)));
-  const neighborsSupportingDemo = 70 + Math.round(block.need_score * 1.1);
-  const meanTimeDemo = block.need_score >= 70
+  const resolutionRateDemo = Math.min(98, Math.max(45, 100 - Math.round(needScore * 0.7)));
+  const neighborsSupportingDemo = 70 + Math.round(needScore * 1.1);
+  const meanTimeDemo = needScore >= 70
     ? "48 days"
-    : block.need_score >= 40
+    : needScore >= 40
       ? "35 days"
       : "12 days";
 
@@ -355,11 +386,11 @@ const Block = () => {
               Copy Link
             </Button>
           </div>
-          <div className={`rounded-xl border bg-gradient-to-r ${getNeedScoreGradient(block.need_score)} p-4`}>
+          <div className={`rounded-xl border bg-gradient-to-r ${getNeedScoreGradient(needScore)} p-4`}>
             <div className="flex flex-col gap-4 md:flex-row md:items-center md:justify-between">
               <div className="flex items-center gap-3 flex-wrap">
                 <Badge variant="secondary" className="text-lg px-3 py-1 bg-white/70 text-foreground">
-                  Need Score: {block.need_score}
+                  Need Score: {needScore}
                 </Badge>
                 <span className="text-sm text-muted-foreground">
                   Higher score = more help needed
