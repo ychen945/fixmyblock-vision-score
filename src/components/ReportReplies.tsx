@@ -7,15 +7,17 @@ import { formatDistanceToNow } from "date-fns";
 import { toast } from "sonner";
 import { getAvatarUrl } from "@/lib/utils";
 import type { ReportReply } from "@/lib/replies";
+import { cn } from "@/lib/utils";
 
 interface ReportRepliesProps {
   reportId: string;
   replies: ReportReply[];
   currentUserId: string | null;
   onReplyAdded: (reply: ReportReply) => void;
+  className?: string;
 }
 
-const ReportReplies = ({ reportId, replies, currentUserId, onReplyAdded }: ReportRepliesProps) => {
+const ReportReplies = ({ reportId, replies, currentUserId, onReplyAdded, className }: ReportRepliesProps) => {
   const [open, setOpen] = useState(false);
   const [replyText, setReplyText] = useState("");
   const [submitting, setSubmitting] = useState(false);
@@ -78,7 +80,7 @@ const ReportReplies = ({ reportId, replies, currentUserId, onReplyAdded }: Repor
   const replyLabel = `${replyCount} ${replyCount === 1 ? "reply" : "replies"}`;
 
   return (
-    <div className="mt-3 space-y-3">
+    <div className={cn("mt-3 space-y-3", className)}>
       <button
         className="text-xs font-medium text-muted-foreground hover:text-foreground transition"
         onClick={() => setOpen((prev) => !prev)}

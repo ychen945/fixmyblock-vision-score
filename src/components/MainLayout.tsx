@@ -17,7 +17,11 @@ const MainLayout = ({ children }: MainLayoutProps) => {
             to="/home"
             className="flex items-center gap-2 mr-6 text-lg font-bold hover:text-primary transition-colors"
           >
-            BetterBlock
+            <img
+              src="/logo.png"
+              alt="BetterBlock"
+              className="h-8 w-auto"
+            />
           </NavLink>
 
           {/* Navigation Links */}

@@ -112,7 +112,7 @@ const Leaderboard = () => {
           </p>
         </div>
 
-        <Tabs defaultValue="blocks" className="w-full">
+        <Tabs defaultValue="contributors" className="w-full">
           <TabsList className="grid w-full max-w-md mx-auto grid-cols-2 mb-8">
             <TabsTrigger value="contributors">Contributors</TabsTrigger>
             <TabsTrigger value="blocks">Blocks</TabsTrigger>

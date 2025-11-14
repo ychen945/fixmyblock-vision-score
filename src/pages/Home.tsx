@@ -41,6 +41,25 @@ const ISSUE_TYPES = [
   { value: 'transportation_streets', label: 'Transportation & Streets' }
 ];
 
+const ISSUE_TYPE_COLORS: Record<string, string> = {
+  animals: "text-emerald-600",
+  broken_light: "text-amber-600",
+  consumer_employee_protection: "text-sky-600",
+  covid_19_assistance: "text-rose-600",
+  disabilities: "text-purple-600",
+  flooding: "text-blue-700",
+  garbage_recycling: "text-lime-600",
+  health: "text-red-600",
+  home_buildings: "text-cyan-700",
+  other: "text-muted-foreground",
+  parks_trees_environment: "text-green-700",
+  pothole: "text-orange-600",
+  public_safety: "text-indigo-600",
+  seniors: "text-fuchsia-600",
+  trash: "text-yellow-700",
+  transportation_streets: "text-teal-600",
+};
+
 interface Block {
   id: string;
   name: string;
@@ -363,6 +382,8 @@ const Home = () => {
             ) : (
               getFilteredAndSortedReports().map((report) => {
                 const hasUpvoted = report.upvotes.some((u) => u.user_id === currentUserId);
+                const issueColor =
+                  ISSUE_TYPE_COLORS[report.type] || "text-primary";
                 const avatarSrc = getAvatarUrl(report.created_by, report.user.avatar_url);
                 
                 return (
@@ -374,10 +395,12 @@ const Home = () => {
                           report.status === "resolved"
                             ? "default"
                             : report.status === "civic_bodies_notified"
-                              ? "secondary"
+                              ? "outline"
                               : "destructive"
                         }
-                        className="absolute top-4 right-4 text-xs"
+                        className={`absolute top-4 right-4 text-xs ${
+                          report.status === "civic_bodies_notified" ? "bg-yellow-100 text-yellow-800 border-yellow-200" : ""
+                        }`}
                       >
                         {report.status === "civic_bodies_notified" 
                           ? "Civic Notified" 
@@ -399,11 +422,11 @@ const Home = () => {
                               {report.user.display_name}
                             </span>{" "}
                             reported a{" "}
-                            <span className="font-medium">
+                            <span className={`font-semibold ${issueColor}`}>
                               {report.type.replace("_", " ")}
                             </span>{" "}
                             at{" "}
-                            <span className="font-medium">
+                            <span className="font-semibold text-foreground">
                               {report.block?.name || "unknown location"}
                             </span>
                           </p>
@@ -441,7 +464,7 @@ const Home = () => {
                               onClick={() => handleUpvote(report.id)}
                               className="text-xs"
                             >
-                              👁️ I see this too ({report.upvotes.length})
+                              👍 I see this too ({report.upvotes.length})
                             </Button>
                             {report.status === "open" && (
                               <Button
@@ -460,6 +483,7 @@ const Home = () => {
                             replies={report.replies}
                             currentUserId={currentUserId}
                             onReplyAdded={(newReply) => handleReplyAdded(report.id, newReply)}
+                            className="mt-1"
                           />
                         </div>
                       </div>
