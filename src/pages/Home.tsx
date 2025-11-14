@@ -18,8 +18,6 @@ import {
 import ReportReplies from "@/components/ReportReplies";
 import { normalizeReplies, type ReportReply, type SupabaseReportReply } from "@/lib/replies";
 import { getAvatarUrl } from "@/lib/utils";
-import ReportReplies from "@/components/ReportReplies";
-import { normalizeReplies, type ReportReply, type SupabaseReportReply } from "@/lib/replies";
 
 type Report = FeedReport;
 
