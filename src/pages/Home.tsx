@@ -71,28 +71,6 @@ const Home = () => {
     setCurrentUserId(session?.user?.id || null);
   };
 
-  const fetchRepliesMap = async (reportIds: string[]) => {
-    if (reportIds.length === 0) return {};
-    const { data, error } = await supabase
-      .from("report_replies")
-      .select(`
-        id,
-        body,
-        created_at,
-        author_id,
-        report_id,
-        author:users(display_name, avatar_url)
-      `)
-      .in("report_id", reportIds);
-
-    if (error) throw error;
-    const normalized = normalizeReplies(data as SupabaseReportReply[] | null);
-    return normalized.reduce<Record<string, ReportReply[]>>((acc, reply) => {
-      acc[reply.report_id] = acc[reply.report_id] ? [...acc[reply.report_id], reply] : [reply];
-      return acc;
-    }, {});
-  };
-
   const fetchReports = async () => {
     try {
       const { data, error } = await supabase
@@ -109,6 +87,7 @@ const Home = () => {
             body,
             created_at,
             author_id,
+            report_id,
             author:users(display_name, avatar_url)
           )
         `
@@ -117,12 +96,7 @@ const Home = () => {
 
       if (error) throw error;
       const normalizedReports = normalizeFeedReports(data as SupabaseFeedReport[] | null);
-      const repliesMap = await fetchRepliesMap(normalizedReports.map((r) => r.id));
-      const enrichedReports = normalizedReports.map((report) => ({
-        ...report,
-        replies: repliesMap[report.id] || [],
-      }));
-      setReports(enrichedReports);
+      setReports(normalizedReports);
     } catch (error: any) {
       toast.error("Failed to load reports: " + error.message);
     } finally {
