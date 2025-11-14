@@ -276,8 +276,26 @@ const Home = () => {
                 const hasUpvoted = report.upvotes.some((u) => u.user_id === currentUserId);
                 
                 return (
-                  <Card key={report.id}>
+                  <Card key={report.id} className="relative">
                     <CardContent className="p-4">
+                      {/* Status chip in top right */}
+                      <Badge
+                        variant={
+                          report.status === "resolved"
+                            ? "default"
+                            : report.status === "civic_bodies_notified"
+                              ? "secondary"
+                              : "destructive"
+                        }
+                        className="absolute top-4 right-4 text-xs"
+                      >
+                        {report.status === "civic_bodies_notified" 
+                          ? "Civic Notified" 
+                          : report.status === "resolved" 
+                            ? "Resolved" 
+                            : "Open"}
+                      </Badge>
+
                       <div className="flex items-start gap-3">
                         <Avatar className="h-10 w-10">
                           <AvatarImage src={report.user.avatar_url || undefined} />
@@ -285,7 +303,7 @@ const Home = () => {
                             {report.user.display_name.charAt(0)}
                           </AvatarFallback>
                         </Avatar>
-                        <div className="flex-1 min-w-0">
+                        <div className="flex-1 min-w-0 pr-24">
                           <p className="text-sm">
                             <span className="font-semibold">
                               {report.user.display_name}
@@ -315,21 +333,6 @@ const Home = () => {
                             </p>
                           )}
                           <div className="flex items-center gap-2 mt-3">
-                            <Badge
-                              variant={
-                                report.status === "resolved"
-                                  ? "default"
-                                  : report.status === "civic_bodies_notified"
-                                    ? "secondary"
-                                    : "destructive"
-                              }
-                            >
-                              {report.status === "civic_bodies_notified" 
-                                ? "🟡 civic notified" 
-                                : report.status === "resolved" 
-                                  ? "🟢 resolved" 
-                                  : "🔴 open"}
-                            </Badge>
                             <Button
                               size="sm"
                               variant={hasUpvoted ? "default" : "ghost"}
