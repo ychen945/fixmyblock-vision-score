@@ -107,6 +107,59 @@ const Map2 = () => {
     };
   }, [selectedNeighborhood]);
 
+  // Initialize neighborhood detail map with report markers
+  useEffect(() => {
+    if (!selectedNeighborhood || reports.length === 0 || !mapContainerRef.current) return;
+
+    // Initialize map centered on neighborhood
+    mapRef.current = L.map(mapContainerRef.current).setView(
+      [selectedNeighborhood.lat, selectedNeighborhood.lng],
+      14
+    );
+
+    // Add OpenStreetMap tile layer
+    L.tileLayer("https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png", {
+      attribution: '© OpenStreetMap contributors',
+    }).addTo(mapRef.current);
+
+    // Add markers for each report
+    reports.forEach((report) => {
+      const markerColor = report.status === "open" ? "#ef4444" : "#22c55e";
+      
+      const marker = L.circleMarker([report.lat, report.lng], {
+        radius: 8,
+        fillColor: markerColor,
+        color: "#fff",
+        weight: 2,
+        opacity: 1,
+        fillOpacity: 0.8,
+      }).addTo(mapRef.current!);
+
+      marker.bindPopup(`
+        <div style="min-width: 200px;">
+          <strong>${report.type}</strong><br/>
+          <span style="color: ${markerColor};">${report.status}</span><br/>
+          ${report.description ? `<p style="margin: 8px 0; font-size: 14px;">${report.description}</p>` : ''}
+          <small>by ${report.user.display_name}</small>
+        </div>
+      `);
+    });
+
+    // Fit map to show all markers
+    if (reports.length > 0) {
+      const bounds = L.latLngBounds(reports.map(r => [r.lat, r.lng]));
+      mapRef.current.fitBounds(bounds, { padding: [50, 50] });
+    }
+
+    // Cleanup on unmount or when reports change
+    return () => {
+      if (mapRef.current) {
+        mapRef.current.remove();
+        mapRef.current = null;
+      }
+    };
+  }, [selectedNeighborhood, reports]);
+
   const fetchBlockIdAndReports = async (slug: string) => {
     setLoading(true);
     try {
@@ -180,9 +233,6 @@ const Map2 = () => {
     return "#ef4444"; // red
   };
 
-  const getGoogleMapsEmbedUrl = (lat: number, lng: number) => {
-    return `https://www.google.com/maps/embed/v1/view?key=AIzaSyBFw0Qbyq9zTFTd-tUY6dZWTgaQzuU17R8&center=${lat},${lng}&zoom=14&maptype=roadmap`;
-  };
 
   // City overview view
   if (!selectedNeighborhood) {
@@ -259,17 +309,9 @@ const Map2 = () => {
                   </Badge>
                 </div>
 
-                {/* Google Maps Embed */}
+                {/* Leaflet Map with Report Markers */}
                 <div className="relative w-full h-[400px] rounded-lg overflow-hidden border">
-                  <iframe
-                    width="100%"
-                    height="100%"
-                    style={{ border: 0 }}
-                    loading="lazy"
-                    allowFullScreen
-                    referrerPolicy="no-referrer-when-downgrade"
-                    src={getGoogleMapsEmbedUrl(selectedNeighborhood.lat, selectedNeighborhood.lng)}
-                  />
+                  <div ref={mapContainerRef} className="w-full h-full" />
                 </div>
 
                 {loading && (
