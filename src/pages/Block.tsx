@@ -16,6 +16,8 @@ import {
   type SupabaseBlockReport,
 } from "@/lib/block";
 import { getAvatarUrl } from "@/lib/utils";
+import ReportReplies from "@/components/ReportReplies";
+import { normalizeReplies, type ReportReply, type SupabaseReportReply } from "@/lib/replies";
 
 interface Block {
   id: string;
@@ -64,6 +66,7 @@ const Block = () => {
     recentReports: 0,
   });
   const [issueFilter, setIssueFilter] = useState<string>("all");
+  const [currentUserId, setCurrentUserId] = useState<string | null>(null);
 
   const loadBlockData = useCallback(async () => {
     if (!slug) return;
@@ -96,7 +99,14 @@ const Block = () => {
           lng,
           user:users!reports_created_by_fkey(display_name, avatar_url),
           upvotes(user_id),
-          verifications:report_verifications(user_id)
+          verifications:report_verifications(user_id),
+          replies:report_replies(
+            id,
+            body,
+            created_at,
+            author_id,
+            author:users(display_name, avatar_url)
+          )
         `)
         .eq("block_id", blockData.id)
         .order("created_at", { ascending: false });
@@ -104,7 +114,7 @@ const Block = () => {
       if (reportsError) throw reportsError;
 
       const rawReports: SupabaseBlockReport[] = (reportsData as SupabaseBlockReport[] | null) ?? [];
-      const normalizedReports: BlockReport[] = rawReports.map((report) => {
+      const baseReports: BlockReport[] = rawReports.map((report) => {
         const normalizedUser = Array.isArray(report.user) ? report.user[0] : report.user;
         const severity =
           report.severity ??
@@ -112,6 +122,7 @@ const Block = () => {
           "medium";
         return {
           ...report,
+          replies: [],
           severity,
           user: normalizedUser || { display_name: "Community Member", avatar_url: null },
           upvotes: report.upvotes || [],
@@ -119,9 +130,15 @@ const Block = () => {
         };
       });
 
-      setReports(normalizedReports);
+      const repliesMap = await fetchRepliesMap(baseReports.map((r) => r.id));
+      const enrichedReports = baseReports.map((report) => ({
+        ...report,
+        replies: repliesMap[report.id] || [],
+      }));
 
-      setStats(calculateBlockStats(normalizedReports));
+      setReports(enrichedReports);
+
+      setStats(calculateBlockStats(enrichedReports));
 
     } catch (error: any) {
       console.error("Error loading block data:", error);
@@ -135,9 +152,39 @@ const Block = () => {
     }
   }, [slug, toast]);
 
+  const fetchRepliesMap = async (reportIds: string[]) => {
+    if (reportIds.length === 0) return {};
+    const { data, error } = await supabase
+      .from("report_replies")
+      .select(`
+        id,
+        body,
+        created_at,
+        author_id,
+        report_id,
+        author:users(display_name, avatar_url)
+      `)
+      .in("report_id", reportIds);
+
+    if (error) throw error;
+    const normalized = normalizeReplies(data as SupabaseReportReply[] | null);
+    return normalized.reduce<Record<string, ReportReply[]>>((acc, reply) => {
+      acc[reply.report_id] = acc[reply.report_id]
+        ? [...acc[reply.report_id], reply]
+        : [reply];
+      return acc;
+    }, {});
+  };
+
   useEffect(() => {
     loadBlockData();
   }, [loadBlockData]);
+
+  useEffect(() => {
+    supabase.auth.getUser().then(({ data: { user } }) => {
+      setCurrentUserId(user?.id ?? null);
+    });
+  }, []);
 
   const filteredReports = useMemo(() => {
     if (issueFilter === "all") return reports;
@@ -158,6 +205,16 @@ const Block = () => {
         variant: "destructive",
       });
     }
+  };
+
+  const handleReplyAdded = (reportId: string, reply: ReportReply) => {
+    setReports((prev) =>
+      prev.map((report) =>
+        report.id === reportId
+          ? { ...report, replies: [...report.replies, reply] }
+          : report,
+      ),
+    );
   };
 
   if (loading) {
@@ -440,6 +497,13 @@ const Block = () => {
                                 View location
                               </Button>
                             </div>
+
+                            <ReportReplies
+                              reportId={report.id}
+                              replies={report.replies}
+                              currentUserId={currentUserId}
+                              onReplyAdded={(newReply) => handleReplyAdded(report.id, newReply)}
+                            />
                           </div>
                         </div>
                       </CardContent>

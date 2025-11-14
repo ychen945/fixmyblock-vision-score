@@ -6,7 +6,7 @@ import { Badge } from "@/components/ui/badge";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { Card, CardContent } from "@/components/ui/card";
 import { ScrollArea } from "@/components/ui/scroll-area";
-import { Loader2, Plus, SlidersHorizontal, X, Flag } from "lucide-react";
+import { Loader2, SlidersHorizontal, X, Flag } from "lucide-react";
 import { toast } from "sonner";
 import { formatDistanceToNow } from "date-fns";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
@@ -16,6 +16,8 @@ import {
   type SupabaseFeedReport,
 } from "@/lib/feed";
 import { getAvatarUrl } from "@/lib/utils";
+import ReportReplies from "@/components/ReportReplies";
+import { normalizeReplies, type ReportReply, type SupabaseReportReply } from "@/lib/replies";
 
 type Report = FeedReport;
 
@@ -69,6 +71,28 @@ const Home = () => {
     setCurrentUserId(session?.user?.id || null);
   };
 
+  const fetchRepliesMap = async (reportIds: string[]) => {
+    if (reportIds.length === 0) return {};
+    const { data, error } = await supabase
+      .from("report_replies")
+      .select(`
+        id,
+        body,
+        created_at,
+        author_id,
+        report_id,
+        author:users(display_name, avatar_url)
+      `)
+      .in("report_id", reportIds);
+
+    if (error) throw error;
+    const normalized = normalizeReplies(data as SupabaseReportReply[] | null);
+    return normalized.reduce<Record<string, ReportReply[]>>((acc, reply) => {
+      acc[reply.report_id] = acc[reply.report_id] ? [...acc[reply.report_id], reply] : [reply];
+      return acc;
+    }, {});
+  };
+
   const fetchReports = async () => {
     try {
       const { data, error } = await supabase
@@ -79,14 +103,26 @@ const Home = () => {
           user:users!reports_created_by_fkey(display_name, avatar_url),
           block:blocks(name, slug),
           upvotes(user_id),
-          verifications:report_verifications(user_id)
+          verifications:report_verifications(user_id),
+          replies:report_replies(
+            id,
+            body,
+            created_at,
+            author_id,
+            author:users(display_name, avatar_url)
+          )
         `
         )
         .order("created_at", { ascending: false });
 
       if (error) throw error;
       const normalizedReports = normalizeFeedReports(data as SupabaseFeedReport[] | null);
-      setReports(normalizedReports);
+      const repliesMap = await fetchRepliesMap(normalizedReports.map((r) => r.id));
+      const enrichedReports = normalizedReports.map((report) => ({
+        ...report,
+        replies: repliesMap[report.id] || [],
+      }));
+      setReports(enrichedReports);
     } catch (error: any) {
       toast.error("Failed to load reports: " + error.message);
     } finally {
@@ -106,6 +142,16 @@ const Home = () => {
     } catch (error: any) {
       console.error("Failed to load blocks:", error.message);
     }
+  };
+
+  const handleReplyAdded = (reportId: string, reply: ReportReply) => {
+    setReports((prev) =>
+      prev.map((report) =>
+        report.id === reportId
+          ? { ...report, replies: [...report.replies, reply] }
+          : report,
+      ),
+    );
   };
 
   const getFilteredAndSortedReports = () => {
@@ -405,6 +451,13 @@ const Home = () => {
                               </Button>
                             )}
                           </div>
+
+                          <ReportReplies
+                            reportId={report.id}
+                            replies={report.replies}
+                            currentUserId={currentUserId}
+                            onReplyAdded={(newReply) => handleReplyAdded(report.id, newReply)}
+                          />
                         </div>
                       </div>
                     </CardContent>

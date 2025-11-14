@@ -1,3 +1,5 @@
+import type { ReportReply, SupabaseReportReply } from "@/lib/replies";
+
 export interface FeedReport {
   id: string;
   type: string;
@@ -20,10 +22,12 @@ export interface FeedReport {
   } | null;
   upvotes: { user_id: string }[];
   verifications: { user_id: string }[];
+  replies: ReportReply[];
 }
 
 export type SupabaseFeedReport = Omit<FeedReport, "user"> & {
   user: FeedReport["user"] | FeedReport["user"][] | null;
+  replies: SupabaseReportReply[] | null;
   ai_metadata?: {
     severity?: "low" | "medium" | "high";
     [key: string]: unknown;
@@ -41,10 +45,19 @@ export const normalizeFeedReports = (
       (report.ai_metadata?.severity as FeedReport["severity"]) ??
       "medium";
 
+    const replies = (report.replies || []).map((reply) => {
+      const normalizedAuthor = Array.isArray(reply.author) ? reply.author[0] : reply.author;
+      return {
+        ...reply,
+        author: normalizedAuthor || { display_name: "Community Member", avatar_url: null },
+      };
+    });
+
     return {
       ...report,
       severity,
       user: normalizedUser || { display_name: "Community Member", avatar_url: null },
+      replies,
     };
   });
 };

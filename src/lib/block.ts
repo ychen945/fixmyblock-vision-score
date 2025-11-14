@@ -1,4 +1,5 @@
 import { differenceInDays } from "date-fns";
+import type { ReportReply, SupabaseReportReply } from "@/lib/replies";
 
 export interface BlockReport {
   id: string;
@@ -19,12 +20,14 @@ export interface BlockReport {
   };
   upvotes: { user_id: string }[];
   verifications: { user_id: string }[];
+  replies: ReportReply[];
 }
 
-export type SupabaseBlockReport = Omit<BlockReport, "user" | "upvotes" | "verifications"> & {
+export type SupabaseBlockReport = Omit<BlockReport, "user" | "upvotes" | "verifications" | "replies"> & {
   user: BlockReport["user"] | BlockReport["user"][] | null;
   upvotes: { user_id: string }[] | null;
   verifications: { user_id: string }[] | null;
+  replies: SupabaseReportReply[] | null;
   ai_metadata?: {
     severity?: "low" | "medium" | "high";
     [key: string]: unknown;

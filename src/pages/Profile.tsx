@@ -10,6 +10,8 @@ import { ArrowLeft, User, FileText, ThumbsUp, Award, Loader2 } from "lucide-reac
 import { formatDistanceToNow } from "date-fns";
 import { useToast } from "@/hooks/use-toast";
 import { getAvatarUrl } from "@/lib/utils";
+import ReportReplies from "@/components/ReportReplies";
+import { normalizeReplies, type ReportReply, type SupabaseReportReply } from "@/lib/replies";
 
 interface UserReport {
   id: string;
@@ -25,6 +27,7 @@ interface UserReport {
   photo_url: string;
   upvotes: { user_id: string }[];
   verifications: { user_id: string }[];
+  replies: ReportReply[];
 }
 
 interface UserProfile {
@@ -67,6 +70,7 @@ const Profile = () => {
     upvotesReceived: 0,
     contributionScore: 0,
   });
+  const [currentUserId, setCurrentUserId] = useState<string | null>(null);
 
   useEffect(() => {
     loadProfile();
@@ -76,8 +80,9 @@ const Profile = () => {
     try {
       // Try to get current authenticated user
       const { data: { user } } = await supabase.auth.getUser();
+      const sessionUserId = user?.id ?? null;
       
-      let userId = user?.id;
+      let userId = sessionUserId;
 
       // If no authenticated user, use first demo user
       if (!userId) {
@@ -100,6 +105,7 @@ const Profile = () => {
         navigate("/");
         return;
       }
+      setCurrentUserId(sessionUserId);
 
       // Fetch user profile
       const { data: profileData, error: profileError } = await supabase
@@ -124,14 +130,21 @@ const Profile = () => {
           photo_url,
           block:blocks(name, slug),
           upvotes(user_id),
-          verifications:report_verifications(user_id)
+          verifications:report_verifications(user_id),
+          replies:report_replies(
+            id,
+            body,
+            created_at,
+            author_id,
+            author:users(display_name, avatar_url)
+          )
         `)
         .eq("created_by", userId)
         .order("created_at", { ascending: false });
 
       if (reportsError) throw reportsError;
 
-      const normalizedReports: UserReport[] = (reportsData || []).map((report: any) => {
+      const baseReports: UserReport[] = (reportsData || []).map((report: any) => {
         const severity =
           report.severity ??
           (report.ai_metadata?.severity as UserReport["severity"]) ??
@@ -140,11 +153,18 @@ const Profile = () => {
         return {
           ...report,
           severity,
+          replies: [],
           block: Array.isArray(report.block) ? report.block[0] : report.block,
           upvotes: report.upvotes || [],
           verifications: report.verifications || [],
         };
       });
+
+      const repliesMap = await fetchRepliesMap(baseReports.map((r) => r.id));
+      const normalizedReports = baseReports.map((report) => ({
+        ...report,
+        replies: repliesMap[report.id] || [],
+      }));
 
       setReports(normalizedReports);
 
@@ -175,6 +195,38 @@ const Profile = () => {
     } finally {
       setLoading(false);
     }
+  };
+
+  const fetchRepliesMap = async (reportIds: string[]) => {
+    if (reportIds.length === 0) return {};
+    const { data, error } = await supabase
+      .from("report_replies")
+      .select(`
+        id,
+        body,
+        created_at,
+        author_id,
+        report_id,
+        author:users(display_name, avatar_url)
+      `)
+      .in("report_id", reportIds);
+
+    if (error) throw error;
+    const normalized = normalizeReplies(data as SupabaseReportReply[] | null);
+    return normalized.reduce<Record<string, ReportReply[]>>((acc, reply) => {
+      acc[reply.report_id] = acc[reply.report_id]
+        ? [...acc[reply.report_id], reply]
+        : [reply];
+      return acc;
+    }, {});
+  };
+
+  const handleReplyAdded = (reportId: string, reply: ReportReply) => {
+    setReports((prev) =>
+      prev.map((report) =>
+        report.id === reportId ? { ...report, replies: [...report.replies, reply] } : report,
+      ),
+    );
   };
 
   if (loading) {
@@ -388,6 +440,13 @@ const Profile = () => {
                                 </Button>
                               )}
                             </div>
+
+                            <ReportReplies
+                              reportId={report.id}
+                              replies={report.replies}
+                              currentUserId={currentUserId}
+                              onReplyAdded={(newReply) => handleReplyAdded(report.id, newReply)}
+                            />
                           </div>
                         </div>
                       </CardContent>
