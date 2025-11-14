@@ -21,6 +21,7 @@ interface Report {
   lng: number;
   created_by: string;
   block_id: string | null;
+  photo_url: string;
   user: {
     display_name: string;
     avatar_url: string | null;
@@ -327,6 +328,18 @@ const Home = () => {
                               {report.description}
                             </p>
                           )}
+                          
+                          {report.photo_url && (
+                            <div className="mt-3 rounded-lg overflow-hidden">
+                              <img 
+                                src={report.photo_url} 
+                                alt="Report photo" 
+                                className="w-full h-48 object-cover"
+                                loading="lazy"
+                              />
+                            </div>
+                          )}
+
                           {report.status === "resolved" && report.verifications.length >= 2 && (
                             <p className="text-xs font-medium text-green-600 mt-2">
                               🎉 Verified by {report.verifications.length} residents
