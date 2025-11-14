@@ -215,7 +215,7 @@ const Leaderboard = () => {
                             <span>{contributor.reports_count} reports filed</span>
                             <span className="flex items-center gap-1">
                               <Users className="h-3 w-3" />
-                              {contributor.upvotes_received} neighbors echoed
+                              {contributor.upvotes_received} neighbor verified
                             </span>
                           </div>
                         </div>
