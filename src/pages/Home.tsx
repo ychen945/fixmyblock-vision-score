@@ -192,10 +192,19 @@ const Home = () => {
 
   const handleResolveReport = async (reportId: string) => {
     if (!currentUserId) {
-      toast.error("Please sign in to close reports");
+      toast.error("Please sign in to mark reports as resolved");
       return;
     }
-    toast.info("Close report feature coming soon!");
+
+    // Show gentle notification in bottom left
+    toast.success("Thanks for letting us know!", {
+      description: "📸 Got a photo? Adding one helps us verify and resolve faster!",
+      duration: 5000,
+    });
+
+    // Here you could add logic to track that user provided feedback
+    // For now, we just show the notification without marking as resolved
+    console.log("User provided feedback for report:", reportId);
   };
 
   if (loading) {
@@ -336,7 +345,7 @@ const Home = () => {
                                 onClick={() => handleResolveReport(report.id)}
                                 className="text-xs"
                               >
-                                🛠️ Close Report
+                                ✅ Mark Resolved
                               </Button>
                             )}
                           </div>
