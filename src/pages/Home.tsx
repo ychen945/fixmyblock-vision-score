@@ -30,6 +30,7 @@ interface Report {
     slug: string;
   } | null;
   upvotes: { user_id: string }[];
+  verifications: { user_id: string }[];
 }
 
 interface Block {
@@ -46,6 +47,7 @@ const Home = () => {
   const [blocks, setBlocks] = useState<Block[]>([]);
   const [selectedBlock, setSelectedBlock] = useState<string>("all");
   const [sortBy, setSortBy] = useState<"date" | "upvotes">("date");
+  const [statusFilter, setStatusFilter] = useState<string>("all");
 
   useEffect(() => {
     fetchReports();
@@ -69,7 +71,8 @@ const Home = () => {
           *,
           user:users!reports_created_by_fkey(display_name, avatar_url),
           block:blocks(name, slug),
-          upvotes(user_id)
+          upvotes(user_id),
+          verifications:report_verifications(user_id)
         `
         )
         .order("created_at", { ascending: false });
@@ -105,6 +108,11 @@ const Home = () => {
       filtered = filtered.filter((r) => r.block?.slug === selectedBlock);
     }
 
+    // Filter by status
+    if (statusFilter !== "all") {
+      filtered = filtered.filter((r) => r.status === statusFilter);
+    }
+
     // Sort
     if (sortBy === "upvotes") {
       filtered = [...filtered].sort((a, b) => b.upvotes.length - a.upvotes.length);
@@ -129,7 +137,26 @@ const Home = () => {
     const hasUpvoted = report.upvotes.some((u) => u.user_id === currentUserId);
 
     if (hasUpvoted) {
-      toast.info("You've already upvoted this report");
+      // Remove upvote
+      const { error } = await supabase
+        .from("upvotes")
+        .delete()
+        .eq("report_id", reportId)
+        .eq("user_id", currentUserId);
+
+      if (error) {
+        toast.error("Failed to remove upvote");
+        return;
+      }
+
+      // Update local state
+      setReports((prev) =>
+        prev.map((r) =>
+          r.id === reportId
+            ? { ...r, upvotes: r.upvotes.filter((u) => u.user_id !== currentUserId) }
+            : r
+        )
+      );
       return;
     }
 
@@ -165,19 +192,10 @@ const Home = () => {
 
   const handleResolveReport = async (reportId: string) => {
     if (!currentUserId) {
-      toast.error("Please sign in to resolve reports");
+      toast.error("Please sign in to close reports");
       return;
     }
-
-    // Show gentle notification in bottom left
-    toast.success("Thanks for letting us know!", {
-      description: "📸 Got a photo? Adding one helps us verify and resolve faster!",
-      duration: 5000,
-    });
-
-    // Here you could add logic to track that user provided feedback
-    // For now, we just show the notification without marking as resolved
-    console.log("User provided feedback for report:", reportId);
+    toast.info("Close report feature coming soon!");
   };
 
   if (loading) {
@@ -192,30 +210,45 @@ const Home = () => {
     <div className="min-h-screen bg-background">
       {/* Filter and Sort Controls */}
       <div className="sticky top-14 z-30 w-full border-b bg-background/95 backdrop-blur supports-[backdrop-filter]:bg-background/60">
-        <div className="container flex h-14 items-center gap-4">
-          <SlidersHorizontal className="h-4 w-4 text-muted-foreground" />
-          
-          <Select value={selectedBlock} onValueChange={setSelectedBlock}>
-            <SelectTrigger className="w-[180px]">
-              <SelectValue placeholder="All Neighborhoods" />
-            </SelectTrigger>
-            <SelectContent>
-              <SelectItem value="all">All Neighborhoods</SelectItem>
-              {blocks.map((block) => (
-                <SelectItem key={block.id} value={block.slug}>
-                  {block.name}
-                </SelectItem>
-              ))}
-            </SelectContent>
-          </Select>
+        <div className="container flex h-14 items-center justify-between gap-4">
+          <div className="flex items-center gap-4">
+            <SlidersHorizontal className="h-4 w-4 text-muted-foreground" />
+            
+            <Select value={selectedBlock} onValueChange={setSelectedBlock}>
+              <SelectTrigger className="w-[180px]">
+                <SelectValue placeholder="All Neighborhoods" />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="all">All Neighborhoods</SelectItem>
+                {blocks.map((block) => (
+                  <SelectItem key={block.id} value={block.slug}>
+                    {block.name}
+                  </SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
 
-          <Select value={sortBy} onValueChange={(value: "date" | "upvotes") => setSortBy(value)}>
-            <SelectTrigger className="w-[150px]">
-              <SelectValue placeholder="Sort by" />
+            <Select value={sortBy} onValueChange={(value: "date" | "upvotes") => setSortBy(value)}>
+              <SelectTrigger className="w-[150px]">
+                <SelectValue placeholder="Sort by" />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="date">Latest</SelectItem>
+                <SelectItem value="upvotes">Most Upvoted</SelectItem>
+              </SelectContent>
+            </Select>
+          </div>
+
+          {/* Status Filter */}
+          <Select value={statusFilter} onValueChange={setStatusFilter}>
+            <SelectTrigger className="w-[180px]">
+              <SelectValue />
             </SelectTrigger>
             <SelectContent>
-              <SelectItem value="date">Latest</SelectItem>
-              <SelectItem value="upvotes">Most Upvoted</SelectItem>
+              <SelectItem value="all">All Status</SelectItem>
+              <SelectItem value="open">🔴 Open</SelectItem>
+              <SelectItem value="civic_bodies_notified">🟡 Civic Notified</SelectItem>
+              <SelectItem value="resolved">🟢 Resolved</SelectItem>
             </SelectContent>
           </Select>
         </div>
@@ -267,23 +300,34 @@ const Home = () => {
                               {report.description}
                             </p>
                           )}
+                          {report.status === "resolved" && report.verifications.length >= 2 && (
+                            <p className="text-xs font-medium text-green-600 mt-2">
+                              🎉 Verified by {report.verifications.length} residents
+                            </p>
+                          )}
                           <div className="flex items-center gap-2 mt-3">
                             <Badge
                               variant={
-                                report.status === "open"
-                                  ? "destructive"
-                                  : "secondary"
+                                report.status === "resolved"
+                                  ? "default"
+                                  : report.status === "civic_bodies_notified"
+                                    ? "secondary"
+                                    : "destructive"
                               }
                             >
-                              {report.status}
+                              {report.status === "civic_bodies_notified" 
+                                ? "🟡 civic notified" 
+                                : report.status === "resolved" 
+                                  ? "🟢 resolved" 
+                                  : "🔴 open"}
                             </Badge>
                             <Button
                               size="sm"
-                              variant="ghost"
+                              variant={hasUpvoted ? "default" : "ghost"}
                               onClick={() => handleUpvote(report.id)}
                               className="text-xs"
                             >
-                              👍 I see this too ({report.upvotes.length})
+                              👁️ I see this too ({report.upvotes.length})
                             </Button>
                             {report.status === "open" && (
                               <Button
@@ -292,7 +336,7 @@ const Home = () => {
                                 onClick={() => handleResolveReport(report.id)}
                                 className="text-xs"
                               >
-                                ✅ Resolved
+                                🛠️ Close Report
                               </Button>
                             )}
                           </div>
