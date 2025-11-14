@@ -1,4 +1,4 @@
-import { useState, useEffect } from "react";
+import { useState, useEffect, useRef } from "react";
 import { supabase } from "@/integrations/supabase/client";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
@@ -7,6 +7,9 @@ import { ScrollArea } from "@/components/ui/scroll-area";
 import { ArrowLeft, Loader2, MapPin } from "lucide-react";
 import { toast } from "sonner";
 import { formatDistanceToNow } from "date-fns";
+import L from "leaflet";
+import "leaflet/dist/leaflet.css";
+import "leaflet.heat";
 
 // Chicago neighborhoods with centroid coordinates
 const CHICAGO_NEIGHBORHOODS = [
@@ -58,11 +61,78 @@ const Map2 = () => {
   const [reports, setReports] = useState<Report[]>([]);
   const [loading, setLoading] = useState(false);
   const [blockId, setBlockId] = useState<string | null>(null);
+  const mapContainerRef = useRef<HTMLDivElement>(null);
+  const mapRef = useRef<L.Map | null>(null);
 
   useEffect(() => {
     if (selectedNeighborhood) {
       fetchBlockIdAndReports(selectedNeighborhood.slug);
     }
+  }, [selectedNeighborhood]);
+
+  // Initialize map for city overview
+  useEffect(() => {
+    if (selectedNeighborhood || !mapContainerRef.current) return;
+
+    // Initialize map centered on Chicago
+    mapRef.current = L.map(mapContainerRef.current).setView([41.8781, -87.6298], 11);
+
+    // Add OpenStreetMap tile layer
+    L.tileLayer("https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png", {
+      attribution: '© OpenStreetMap contributors',
+    }).addTo(mapRef.current);
+
+    // Prepare heatmap data: [lat, lng, intensity (need_score normalized)]
+    const heatData = CHICAGO_NEIGHBORHOODS.map((n) => [
+      n.lat,
+      n.lng,
+      n.need_score / 100, // Normalize to 0-1 range
+    ]);
+
+    // Add heatmap layer
+    // @ts-ignore - leaflet.heat types
+    L.heatLayer(heatData, {
+      radius: 30,
+      blur: 25,
+      maxZoom: 13,
+      gradient: {
+        0.2: "green",
+        0.4: "yellow",
+        0.6: "orange",
+        1.0: "red",
+      },
+    }).addTo(mapRef.current);
+
+    // Add clickable markers for each neighborhood
+    CHICAGO_NEIGHBORHOODS.forEach((neighborhood) => {
+      const marker = L.circleMarker([neighborhood.lat, neighborhood.lng], {
+        radius: 8,
+        fillColor: getNeedScoreMarkerColor(neighborhood.need_score),
+        color: "#fff",
+        weight: 2,
+        opacity: 1,
+        fillOpacity: 0.8,
+      }).addTo(mapRef.current!);
+
+      marker.bindPopup(`
+        <div style="text-align: center;">
+          <strong>${neighborhood.name}</strong><br/>
+          Need Score: ${neighborhood.need_score}
+        </div>
+      `);
+
+      marker.on("click", () => {
+        setSelectedNeighborhood(neighborhood);
+      });
+    });
+
+    // Cleanup on unmount
+    return () => {
+      if (mapRef.current) {
+        mapRef.current.remove();
+        mapRef.current = null;
+      }
+    };
   }, [selectedNeighborhood]);
 
   const fetchBlockIdAndReports = async (slug: string) => {
@@ -131,6 +201,13 @@ const Map2 = () => {
     return "destructive";
   };
 
+  const getNeedScoreMarkerColor = (score: number): string => {
+    if (score <= 30) return "#22c55e"; // green
+    if (score <= 50) return "#eab308"; // yellow
+    if (score <= 70) return "#f97316"; // orange
+    return "#ef4444"; // red
+  };
+
   const getGoogleMapsEmbedUrl = (lat: number, lng: number) => {
     return `https://www.google.com/maps/embed/v1/view?key=AIzaSyBFw0Qbyq9zTFTd-tUY6dZWTgaQzuU17R8&center=${lat},${lng}&zoom=14&maptype=roadmap`;
   };
@@ -140,43 +217,34 @@ const Map2 = () => {
     return (
       <div className="min-h-screen bg-background">
         <div className="container py-8">
-          <div className="mb-8">
+          <div className="mb-6">
             <h1 className="text-4xl font-bold mb-2">Chicago Neighborhoods</h1>
             <p className="text-muted-foreground">
-              Click on a neighborhood to view detailed reports and map
+              Click on a neighborhood marker to view detailed reports and map
             </p>
           </div>
 
-          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-4">
-            {CHICAGO_NEIGHBORHOODS.map((neighborhood) => (
-              <Card
-                key={neighborhood.slug}
-                className={`cursor-pointer transition-all ${getNeedScoreColor(
-                  neighborhood.need_score
-                )} border-2`}
-                onClick={() => setSelectedNeighborhood(neighborhood)}
-              >
-                <CardContent className="p-6">
-                  <div className="flex items-start justify-between mb-4">
-                    <h3 className="font-bold text-lg">{neighborhood.name}</h3>
-                    <MapPin className="h-5 w-5 text-muted-foreground" />
-                  </div>
-                  
-                  <div className="space-y-2">
-                    <div className="flex items-center justify-between">
-                      <span className="text-sm text-muted-foreground">Need Score</span>
-                      <Badge variant={getNeedScoreBadgeVariant(neighborhood.need_score)}>
-                        {neighborhood.need_score}
-                      </Badge>
-                    </div>
-                    
-                    <div className="text-xs text-muted-foreground">
-                      {neighborhood.lat.toFixed(4)}, {neighborhood.lng.toFixed(4)}
-                    </div>
-                  </div>
-                </CardContent>
-              </Card>
-            ))}
+          <div className="relative w-full h-[calc(100vh-200px)] rounded-lg overflow-hidden border shadow-lg">
+            <div ref={mapContainerRef} className="w-full h-full" />
+          </div>
+
+          <div className="mt-4 flex items-center gap-4 text-sm text-muted-foreground">
+            <div className="flex items-center gap-2">
+              <div className="w-4 h-4 rounded-full bg-green-500" />
+              <span>Low Need (0-30)</span>
+            </div>
+            <div className="flex items-center gap-2">
+              <div className="w-4 h-4 rounded-full bg-yellow-500" />
+              <span>Moderate (31-50)</span>
+            </div>
+            <div className="flex items-center gap-2">
+              <div className="w-4 h-4 rounded-full bg-orange-500" />
+              <span>High (51-70)</span>
+            </div>
+            <div className="flex items-center gap-2">
+              <div className="w-4 h-4 rounded-full bg-red-500" />
+              <span>Critical (71+)</span>
+            </div>
           </div>
         </div>
       </div>
