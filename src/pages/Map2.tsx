@@ -21,7 +21,6 @@ interface Report {
   lat: number;
   lng: number;
   photo_url: string;
-  upvote_count: number;
   user: {
     display_name: string;
     avatar_url: string | null;
@@ -199,24 +198,10 @@ const Map2 = () => {
 
       if (reportsError) throw reportsError;
 
-      // Fetch upvote counts for all reports
-      const reportIds = (reportsData || []).map((r: any) => r.id);
-      const { data: upvotesData } = await supabase
-        .from("upvotes")
-        .select("report_id")
-        .in("report_id", reportIds);
-
-      // Count upvotes per report
-      const upvoteCounts = (upvotesData || []).reduce((acc: Record<string, number>, upvote: any) => {
-        acc[upvote.report_id] = (acc[upvote.report_id] || 0) + 1;
-        return acc;
-      }, {});
-
-      // Fix nested user array and add upvote counts
+      // Fix nested user array
       const fixedData = (reportsData || []).map((report: any) => ({
         ...report,
         user: Array.isArray(report.user) ? report.user[0] : report.user,
-        upvote_count: upvoteCounts[report.id] || 0,
       }));
 
       setReports(fixedData);
@@ -398,8 +383,8 @@ const Map2 = () => {
                                 <p className="text-xs text-muted-foreground">
                                   {formatDistanceToNow(new Date(report.created_at), { addSuffix: true })}
                                 </p>
-                                <p className="text-xs text-muted-foreground mt-1">
-                                  👍 {report.upvote_count} {report.upvote_count === 1 ? 'upvote' : 'upvotes'}
+                                <p className="text-xs text-muted-foreground font-mono mt-1">
+                                  📍 {report.lat.toFixed(4)}, {report.lng.toFixed(4)}
                                 </p>
                               </div>
                             </div>
