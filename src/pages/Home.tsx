@@ -260,7 +260,10 @@ const Home = () => {
         <div>
           <p className="text-sm font-semibold">Thanks for letting us know!</p>
           <p className="text-sm text-muted-foreground">
-            📸 Got a photo? Adding one helps us verify and resolve faster!
+            📸 Got a photo?{" "}
+            <span className="text-primary underline underline-offset-2 hover:text-primary/80 cursor-pointer">
+              Uploading it helps us review faster
+            </span>
           </p>
         </div>
         <button

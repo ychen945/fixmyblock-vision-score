@@ -1,6 +1,6 @@
 import { ReactNode } from "react";
 import { NavLink } from "./NavLink";
-import { Home, Map, Trophy, User } from "lucide-react";
+import { Home, Map, Trophy, User, CalendarDays } from "lucide-react";
 
 interface MainLayoutProps {
   children: ReactNode;
@@ -17,7 +17,7 @@ const MainLayout = ({ children }: MainLayoutProps) => {
             to="/home"
             className="flex items-center gap-2 mr-6 text-lg font-bold hover:text-primary transition-colors"
           >
-            FixMyBlock
+            BetterBlock
           </NavLink>
 
           {/* Navigation Links */}
@@ -47,6 +47,15 @@ const MainLayout = ({ children }: MainLayoutProps) => {
             >
               <Trophy className="h-4 w-4" />
               <span className="hidden sm:inline">Leaderboard</span>
+            </NavLink>
+
+            <NavLink
+              to="/events"
+              className="flex items-center gap-2 text-muted-foreground hover:text-foreground transition-colors"
+              activeClassName="text-foreground font-medium"
+            >
+              <CalendarDays className="h-4 w-4" />
+              <span className="hidden sm:inline">Events</span>
             </NavLink>
           </nav>
 

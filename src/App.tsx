@@ -17,6 +17,7 @@ import MapViewPage from "./pages/MapViewPage";
 import Map2 from "./pages/Map2";
 import SubmissionConfirmation from "./pages/SubmissionConfirmation";
 import NotFound from "./pages/NotFound";
+import Events from "./pages/Events";
 
 const queryClient = new QueryClient();
 
@@ -38,6 +39,7 @@ const App = () => (
             <Route path="/map2" element={<MainLayout><Map2 /></MainLayout>} />
             <Route path="/profile" element={<MainLayout><Profile /></MainLayout>} />
             <Route path="/leaderboard" element={<MainLayout><Leaderboard /></MainLayout>} />
+            <Route path="/events" element={<MainLayout><Events /></MainLayout>} />
             <Route path="/report" element={<MainLayout><ReportIssue /></MainLayout>} />
             <Route path="/block/:slug" element={<MainLayout><Block /></MainLayout>} />
             <Route path="/confirmation/:reportId" element={<MainLayout><SubmissionConfirmation /></MainLayout>} />
