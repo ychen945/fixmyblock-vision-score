@@ -59,6 +59,7 @@ const ReportReplies = ({ reportId, replies, currentUserId, onReplyAdded }: Repor
       const author = Array.isArray(data.author) ? data.author[0] : data.author;
       const newReply: ReportReply = {
         ...data,
+        report_id: reportId,
         author: author || { display_name: "Community Member", avatar_url: null },
       };
 
