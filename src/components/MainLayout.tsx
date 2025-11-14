@@ -20,7 +20,7 @@ const MainLayout = ({ children }: MainLayoutProps) => {
             <img
               src="/logo.png"
               alt="BetterBlock"
-              className="h-8 w-auto"
+              className="h-10 w-auto"
             />
           </NavLink>
 
