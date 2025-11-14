@@ -21,6 +21,7 @@ interface Report {
   lat: number;
   lng: number;
   photo_url: string;
+  upvote_count: number;
   user: {
     display_name: string;
     avatar_url: string | null;
@@ -191,17 +192,19 @@ const Map2 = () => {
           lat,
           lng,
           photo_url,
-          user:users!reports_created_by_fkey(display_name, avatar_url)
+          user:users!reports_created_by_fkey(display_name, avatar_url),
+          upvotes(id)
         `)
         .eq("block_id", blockData.id)
         .order("created_at", { ascending: false });
 
       if (reportsError) throw reportsError;
 
-      // Fix nested user array
+      // Fix nested user array and add upvote count
       const fixedData = (reportsData || []).map((report: any) => ({
         ...report,
         user: Array.isArray(report.user) ? report.user[0] : report.user,
+        upvote_count: Array.isArray(report.upvotes) ? report.upvotes.length : 0,
       }));
 
       setReports(fixedData);
@@ -383,8 +386,8 @@ const Map2 = () => {
                                 <p className="text-xs text-muted-foreground">
                                   {formatDistanceToNow(new Date(report.created_at), { addSuffix: true })}
                                 </p>
-                                <p className="text-xs text-muted-foreground font-mono mt-1">
-                                  📍 {report.lat.toFixed(4)}, {report.lng.toFixed(4)}
+                                <p className="text-xs text-muted-foreground flex items-center gap-1 mt-1">
+                                  👁️ {report.upvote_count} {report.upvote_count === 1 ? 'person' : 'people'} see this too
                                 </p>
                               </div>
                             </div>
