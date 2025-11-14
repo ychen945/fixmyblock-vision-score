@@ -14,6 +14,7 @@ import Leaderboard from "./pages/Leaderboard";
 import Block from "./pages/Block";
 import Auth from "./pages/Auth";
 import MapViewPage from "./pages/MapViewPage";
+import Map2 from "./pages/Map2";
 import SubmissionConfirmation from "./pages/SubmissionConfirmation";
 import NotFound from "./pages/NotFound";
 
@@ -34,6 +35,7 @@ const App = () => (
             {/* Routes with MainLayout */}
             <Route path="/home" element={<MainLayout><Home /></MainLayout>} />
             <Route path="/map" element={<MainLayout><MapViewPage /></MainLayout>} />
+            <Route path="/map2" element={<MainLayout><Map2 /></MainLayout>} />
             <Route path="/profile" element={<MainLayout><Profile /></MainLayout>} />
             <Route path="/leaderboard" element={<MainLayout><Leaderboard /></MainLayout>} />
             <Route path="/report" element={<MainLayout><ReportIssue /></MainLayout>} />
