@@ -54,7 +54,7 @@ const Admin = () => {
     setLoading(true);
     try {
       const [usersData, blocksData, reportsData, upvotesData] = await Promise.all([
-        supabase.from("users").select("*").order("created_at", { ascending: false }),
+        supabase.from("public_profiles").select("*").order("created_at", { ascending: false }),
         supabase.from("blocks").select("*").order("created_at", { ascending: false }),
         supabase.from("reports").select("*").order("created_at", { ascending: false }),
         supabase.from("upvotes").select("*").order("created_at", { ascending: false }),

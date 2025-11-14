@@ -59,7 +59,7 @@ const Profile = () => {
       // If no authenticated user, use first demo user
       if (!userId) {
         const { data: demoUsers } = await supabase
-          .from("users")
+          .from("public_profiles")
           .select("id")
           .limit(1);
         
