@@ -378,7 +378,7 @@ const Home = () => {
 
       {/* Floating Action Button */}
       <Button
-        className="fixed bottom-6 right-6 h-14 w-14 rounded-full shadow-lg"
+        className="fixed bottom-6 left-1/2 -translate-x-1/2 h-14 w-14 rounded-full shadow-lg"
         size="icon"
         onClick={() => navigate("/report")}
       >
