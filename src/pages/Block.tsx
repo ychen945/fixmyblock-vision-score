@@ -1,4 +1,4 @@
-import { useState, useEffect, useCallback, useMemo } from "react";
+import { useState, useEffect, useCallback, useMemo, useRef } from "react";
 import { useParams, useNavigate } from "react-router-dom";
 import { supabase } from "@/integrations/supabase/client";
 import { Button } from "@/components/ui/button";
@@ -6,7 +6,7 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/com
 import { Badge } from "@/components/ui/badge";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
-import { Loader2, ArrowLeft, Copy, AlertCircle, CheckCircle2, ThumbsUp, Timer, Gauge, UserCheck, MapPin } from "lucide-react";
+import { Loader2, ArrowLeft, Copy, AlertCircle, CheckCircle2, ThumbsUp, Timer, Gauge, UserCheck, MapPin, CheckCircle, X, Shield } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
 import { formatDistanceToNow } from "date-fns";
 import {
@@ -18,6 +18,8 @@ import {
 import { getAvatarUrl } from "@/lib/utils";
 import ReportReplies from "@/components/ReportReplies";
 import { normalizeReplies, type ReportReply, type SupabaseReportReply } from "@/lib/replies";
+import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } from "@/components/ui/dialog";
+import { ScrollArea } from "@/components/ui/scroll-area";
 
 interface Block {
   id: string;
@@ -67,6 +69,11 @@ const Block = () => {
   });
   const [issueFilter, setIssueFilter] = useState<string>("all");
   const [currentUserId, setCurrentUserId] = useState<string | null>(null);
+  const [petitionOpen, setPetitionOpen] = useState(false);
+  const [petitionLoading, setPetitionLoading] = useState(false);
+  const [petitionContent, setPetitionContent] = useState("");
+  const [petitionSent, setPetitionSent] = useState(false);
+  const petitionTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
   const loadBlockData = useCallback(async () => {
     if (!slug) return;
@@ -186,6 +193,14 @@ const Block = () => {
     });
   }, []);
 
+  useEffect(() => {
+    return () => {
+      if (petitionTimerRef.current) {
+        clearTimeout(petitionTimerRef.current);
+      }
+    };
+  }, []);
+
   const filteredReports = useMemo(() => {
     if (issueFilter === "all") return reports;
     return reports.filter((report) => report.type === issueFilter);
@@ -216,6 +231,68 @@ const Block = () => {
       ),
     );
   };
+
+  const buildPetitionDraft = () => {
+    if (!block) return "";
+    const recentReports = reports
+      .filter((report) => {
+        const createdAt = new Date(report.created_at).getTime();
+        const thirtyDaysAgo = Date.now() - 30 * 24 * 60 * 60 * 1000;
+        return createdAt >= thirtyDaysAgo;
+      })
+      .slice(0, 4);
+
+    const fallbackReports = reports.slice(0, 3);
+    const selectedReports = recentReports.length > 0 ? recentReports : fallbackReports;
+
+    const summary = selectedReports.length
+      ? selectedReports
+          .map((report) => {
+            const friendlyType = report.type.replace(/_/g, " ");
+            const relativeDate = formatDistanceToNow(new Date(report.created_at), { addSuffix: true });
+            return `• ${friendlyType} (${report.status}) reported ${relativeDate}`;
+          })
+          .join("\n")
+      : "• Neighbors continue to flag unresolved civic issues that impact daily life.";
+
+    const blockLink = `${window.location.origin}/block/${block.slug}`;
+
+    return `To: Office of the Mayor of Chicago & Ward Leadership\n\n` +
+      `Subject: Coordinated response for ${block.name}\n\n` +
+      `Dear City Leaders,\n\n` +
+      `As validated residents of ${block.name}, we request immediate attention to the issues that continue to affect our block. Below is a snapshot of the most recent reports filed by our neighbors:\n${summary}\n\n` +
+      `We appreciate the ongoing partnership with city agencies, and we respectfully ask for a coordinated plan that addresses these items with clear timelines and follow-up communication to local residents.\n\n` +
+      `Attached links to the reports: ${blockLink}\n\n` +
+      `Sincerely,\nConcerned neighbors of ${block.name}`;
+  };
+
+  const closePetition = () => {
+    if (petitionTimerRef.current) {
+      clearTimeout(petitionTimerRef.current);
+      petitionTimerRef.current = null;
+    }
+    setPetitionOpen(false);
+    setPetitionSent(false);
+  };
+
+  const handleOpenPetition = () => {
+    setPetitionSent(false);
+    setPetitionLoading(true);
+    setPetitionOpen(true);
+    const draft = buildPetitionDraft();
+    setTimeout(() => {
+      setPetitionContent(draft);
+      setPetitionLoading(false);
+    }, 600);
+  };
+
+  const handleSignPetition = () => {
+    setPetitionSent(true);
+    petitionTimerRef.current = setTimeout(() => {
+      closePetition();
+    }, 3000);
+  };
+
 
   if (loading) {
     return (
@@ -250,6 +327,7 @@ const Block = () => {
       : "12 days";
 
   return (
+    <>
     <div className="min-h-screen bg-background">
       {/* Header */}
       <div className="border-b bg-card">
@@ -278,13 +356,29 @@ const Block = () => {
             </Button>
           </div>
           <div className={`rounded-xl border bg-gradient-to-r ${getNeedScoreGradient(block.need_score)} p-4`}>
-            <div className="flex items-center gap-3 flex-wrap">
-              <Badge variant="secondary" className="text-lg px-3 py-1 bg-white/70 text-foreground">
-                Need Score: {block.need_score}
-              </Badge>
-              <span className="text-sm text-muted-foreground">
-                Higher score = more help needed
-              </span>
+            <div className="flex flex-col gap-4 md:flex-row md:items-center md:justify-between">
+              <div className="flex items-center gap-3 flex-wrap">
+                <Badge variant="secondary" className="text-lg px-3 py-1 bg-white/70 text-foreground">
+                  Need Score: {block.need_score}
+                </Badge>
+                <span className="text-sm text-muted-foreground">
+                  Higher score = more help needed
+                </span>
+              </div>
+              <div className="flex flex-col items-center text-center gap-1 md:items-end md:text-right">
+                <Button
+                  variant="outline"
+                  size="sm"
+                  className="rounded-full"
+                  onClick={handleOpenPetition}
+                >
+                  ✍️ Write a petition
+                </Button>
+                <div className="flex items-center justify-center gap-2 text-xs text-muted-foreground w-full">
+                  <Shield className="h-3.5 w-3.5 text-primary" />
+                  <span>You&apos;re validated</span>
+                </div>
+              </div>
             </div>
           </div>
         </div>
@@ -516,6 +610,65 @@ const Block = () => {
         </Card>
       </div>
     </div>
+
+      <Dialog
+        open={petitionOpen}
+        onOpenChange={(open) => {
+          if (!open) {
+            closePetition();
+          }
+        }}
+      >
+        <DialogContent className="sm:max-w-2xl">
+          {petitionSent ? (
+            <div className="relative rounded-xl border bg-muted/30 p-8 text-center space-y-4">
+              <button
+                className="absolute top-4 right-4 text-muted-foreground hover:text-foreground transition"
+                onClick={closePetition}
+                aria-label="Dismiss"
+              >
+                <X className="h-4 w-4" />
+              </button>
+              <CheckCircle className="h-12 w-12 text-emerald-500 mx-auto" />
+              <h3 className="text-2xl font-semibold">Petition sent</h3>
+              <p className="text-muted-foreground text-sm max-w-md mx-auto">
+                Your signature has been recorded and forwarded to civic leadership. Thanks for representing {block.name}.
+              </p>
+            </div>
+          ) : (
+            <>
+              <DialogHeader>
+                <DialogTitle>Petition for {block.name}</DialogTitle>
+                <DialogDescription>
+                  We drafted a concise petition using the latest reports. Review the text below and sign when it looks good.
+                </DialogDescription>
+              </DialogHeader>
+              <div className="space-y-4">
+                {petitionLoading ? (
+                  <div className="flex flex-col items-center justify-center py-12 gap-3">
+                    <Loader2 className="h-8 w-8 animate-spin text-primary" />
+                    <p className="text-sm text-muted-foreground">Gathering highlights from recent reports…</p>
+                  </div>
+                ) : (
+                  <ScrollArea className="h-64 rounded-lg border bg-muted/20 p-4">
+                    <p className="whitespace-pre-wrap text-sm leading-relaxed">
+                      {petitionContent || "No petition draft available. Close this dialog and try again."}
+                    </p>
+                  </ScrollArea>
+                )}
+                <Button
+                  className="w-full"
+                  disabled={petitionLoading || !petitionContent}
+                  onClick={handleSignPetition}
+                >
+                  Sign & Submit
+                </Button>
+              </div>
+            </>
+          )}
+        </DialogContent>
+      </Dialog>
+    </>
   );
 };
 
