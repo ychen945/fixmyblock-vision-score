@@ -4,6 +4,7 @@ import { TooltipProvider } from "@/components/ui/tooltip";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { BrowserRouter, Routes, Route } from "react-router-dom";
 import { ErrorBoundary } from "@/components/ErrorBoundary";
+import MainLayout from "./components/MainLayout";
 import Index from "./pages/Index";
 import Home from "./pages/Home";
 import Profile from "./pages/Profile";
@@ -12,6 +13,7 @@ import Admin from "./pages/Admin";
 import Leaderboard from "./pages/Leaderboard";
 import Block from "./pages/Block";
 import Auth from "./pages/Auth";
+import MapViewPage from "./pages/MapViewPage";
 import SubmissionConfirmation from "./pages/SubmissionConfirmation";
 import NotFound from "./pages/NotFound";
 
@@ -25,15 +27,20 @@ const App = () => (
         <Sonner />
         <BrowserRouter>
           <Routes>
+            {/* Routes without MainLayout */}
             <Route path="/" element={<Index />} />
             <Route path="/auth" element={<Auth />} />
-            <Route path="/home" element={<Home />} />
-            <Route path="/profile" element={<Profile />} />
-            <Route path="/report" element={<ReportIssue />} />
-            <Route path="/leaderboard" element={<Leaderboard />} />
-            <Route path="/block/:slug" element={<Block />} />
-            <Route path="/confirmation/:reportId" element={<SubmissionConfirmation />} />
-            <Route path="/admin" element={<Admin />} />
+            
+            {/* Routes with MainLayout */}
+            <Route path="/home" element={<MainLayout><Home /></MainLayout>} />
+            <Route path="/map" element={<MainLayout><MapViewPage /></MainLayout>} />
+            <Route path="/profile" element={<MainLayout><Profile /></MainLayout>} />
+            <Route path="/leaderboard" element={<MainLayout><Leaderboard /></MainLayout>} />
+            <Route path="/report" element={<MainLayout><ReportIssue /></MainLayout>} />
+            <Route path="/block/:slug" element={<MainLayout><Block /></MainLayout>} />
+            <Route path="/confirmation/:reportId" element={<MainLayout><SubmissionConfirmation /></MainLayout>} />
+            <Route path="/admin" element={<MainLayout><Admin /></MainLayout>} />
+            
             {/* ADD ALL CUSTOM ROUTES ABOVE THE CATCH-ALL "*" ROUTE */}
             <Route path="*" element={<NotFound />} />
           </Routes>

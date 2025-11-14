@@ -6,10 +6,9 @@ import { Badge } from "@/components/ui/badge";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { Card, CardContent } from "@/components/ui/card";
 import { ScrollArea } from "@/components/ui/scroll-area";
-import { Loader2, Plus, List, Map, Trophy, User, SlidersHorizontal } from "lucide-react";
+import { Loader2, Plus, SlidersHorizontal } from "lucide-react";
 import { toast } from "sonner";
 import { formatDistanceToNow } from "date-fns";
-import MapViewPage from "./MapViewPage";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 
 interface Report {
@@ -44,7 +43,6 @@ const Home = () => {
   const [reports, setReports] = useState<Report[]>([]);
   const [loading, setLoading] = useState(true);
   const [currentUserId, setCurrentUserId] = useState<string | null>(null);
-  const [viewMode, setViewMode] = useState<"feed" | "map">("feed");
   const [blocks, setBlocks] = useState<Block[]>([]);
   const [selectedBlock, setSelectedBlock] = useState<string>("all");
   const [sortBy, setSortBy] = useState<"date" | "upvotes">("date");
@@ -182,17 +180,6 @@ const Home = () => {
     console.log("User provided feedback for report:", reportId);
   };
 
-  const mapReports = reports.map((r) => ({
-    id: r.id,
-    lat: r.lat,
-    lng: r.lng,
-    type: r.type,
-    description: r.description,
-    status: r.status,
-    block: r.block,
-    upvote_count: r.upvotes.length,
-  }));
-
   if (loading) {
     return (
       <div className="flex items-center justify-center min-h-screen">
@@ -202,99 +189,51 @@ const Home = () => {
   }
 
   return (
-    <div className="flex flex-col h-screen">
-      {/* Header with Navigation */}
-      <div className="border-b bg-background">
-        <div className="container mx-auto px-4 py-3">
-          <div className="flex items-center justify-between">
-            <h1 className="text-2xl font-bold">FixMyBlock</h1>
-            <div className="flex gap-2">
-              <Button
-                variant={viewMode === "feed" ? "default" : "outline"}
-                size="sm"
-                onClick={() => setViewMode("feed")}
-                className="flex items-center gap-2"
-              >
-                <List className="h-4 w-4" />
-                Feed
-              </Button>
-              <Button
-                variant={viewMode === "map" ? "default" : "outline"}
-                size="sm"
-                onClick={() => setViewMode("map")}
-                className="flex items-center gap-2"
-              >
-                <Map className="h-4 w-4" />
-                Map
-              </Button>
-              <Button
-                variant="outline"
-                size="sm"
-                onClick={() => navigate("/leaderboard")}
-                className="flex items-center gap-2"
-              >
-                <Trophy className="h-4 w-4" />
-                Leaderboard
-              </Button>
-              <Button
-                variant="outline"
-                size="sm"
-                onClick={() => navigate("/profile")}
-                className="flex items-center gap-2"
-              >
-                <User className="h-4 w-4" />
-                Profile
-              </Button>
-            </div>
-          </div>
+    <div className="min-h-screen bg-background">
+      {/* Filter and Sort Controls */}
+      <div className="sticky top-14 z-30 w-full border-b bg-background/95 backdrop-blur supports-[backdrop-filter]:bg-background/60">
+        <div className="container flex h-14 items-center gap-4">
+          <SlidersHorizontal className="h-4 w-4 text-muted-foreground" />
+          
+          <Select value={selectedBlock} onValueChange={setSelectedBlock}>
+            <SelectTrigger className="w-[180px]">
+              <SelectValue placeholder="All Neighborhoods" />
+            </SelectTrigger>
+            <SelectContent>
+              <SelectItem value="all">All Neighborhoods</SelectItem>
+              {blocks.map((block) => (
+                <SelectItem key={block.id} value={block.slug}>
+                  {block.name}
+                </SelectItem>
+              ))}
+            </SelectContent>
+          </Select>
 
-          {/* Filter and Sort Controls */}
-          {viewMode === "feed" && (
-            <div className="flex items-center gap-3 mt-3 pb-1">
-              <div className="flex items-center gap-2 text-sm text-muted-foreground">
-                <SlidersHorizontal className="h-4 w-4" />
-                <span>Filter & Sort:</span>
-              </div>
-              <Select value={selectedBlock} onValueChange={setSelectedBlock}>
-                <SelectTrigger className="w-[200px] h-9">
-                  <SelectValue placeholder="All Neighborhoods" />
-                </SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="all">All Neighborhoods</SelectItem>
-                  {blocks.map((block) => (
-                    <SelectItem key={block.id} value={block.slug}>
-                      {block.name}
-                    </SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
-              <Select value={sortBy} onValueChange={(value: "date" | "upvotes") => setSortBy(value)}>
-                <SelectTrigger className="w-[150px] h-9">
-                  <SelectValue />
-                </SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="date">Latest First</SelectItem>
-                  <SelectItem value="upvotes">Most Upvoted</SelectItem>
-                </SelectContent>
-              </Select>
-            </div>
-          )}
+          <Select value={sortBy} onValueChange={(value: "date" | "upvotes") => setSortBy(value)}>
+            <SelectTrigger className="w-[150px]">
+              <SelectValue placeholder="Sort by" />
+            </SelectTrigger>
+            <SelectContent>
+              <SelectItem value="date">Latest</SelectItem>
+              <SelectItem value="upvotes">Most Upvoted</SelectItem>
+            </SelectContent>
+          </Select>
         </div>
       </div>
 
-      {/* Main Content */}
-      <div className="flex-1 overflow-hidden">
-        {viewMode === "feed" ? (
-          /* Community Feed View */
-          <div className="h-full bg-background">
-            <ScrollArea className="h-full">
-              <div className="container mx-auto max-w-2xl p-4 space-y-3 pb-24">
-                {getFilteredAndSortedReports().length === 0 ? (
-                  <div className="text-center py-12">
-                    <p className="text-muted-foreground">No reports found for the selected filters.</p>
-                  </div>
-                ) : (
-                  getFilteredAndSortedReports().map((report) => (
+      {/* Feed Content */}
+      <ScrollArea className="h-[calc(100vh-14rem)]">
+        <div className="container py-6">
+          <div className="space-y-4">
+            {getFilteredAndSortedReports().length === 0 ? (
+              <div className="text-center py-12 text-muted-foreground">
+                No reports found
+              </div>
+            ) : (
+              getFilteredAndSortedReports().map((report) => {
+                const hasUpvoted = report.upvotes.some((u) => u.user_id === currentUserId);
+                
+                return (
                   <Card key={report.id}>
                     <CardContent className="p-4">
                       <div className="flex items-start gap-3">
@@ -361,28 +300,21 @@ const Home = () => {
                       </div>
                     </CardContent>
                   </Card>
-                  ))
-                )}
-              </div>
-            </ScrollArea>
+                );
+              })
+            )}
           </div>
-        ) : (
-          /* Map View */
-          <MapViewPage />
-        )}
-      </div>
+        </div>
+      </ScrollArea>
 
-      {/* Floating Action Button (only show on Feed view) */}
-      {viewMode === "feed" && (
-        <Button
-          size="lg"
-          className="fixed bottom-6 left-1/2 -translate-x-1/2 rounded-full shadow-lg z-50"
-          onClick={() => navigate("/report")}
-        >
-          <Plus className="h-5 w-5 mr-2" />
-          Report Issue
-        </Button>
-      )}
+      {/* Floating Action Button */}
+      <Button
+        className="fixed bottom-6 right-6 h-14 w-14 rounded-full shadow-lg"
+        size="icon"
+        onClick={() => navigate("/report")}
+      >
+        <Plus className="h-6 w-6" />
+      </Button>
     </div>
   );
 };
