@@ -50,7 +50,7 @@ const Leaderboard = () => {
 
       // Fetch users
       const { data: usersData, error: usersError } = await supabase
-        .from("users")
+        .from("public_profiles")
         .select("id, display_name, avatar_url, contribution_score")
         .order("contribution_score", { ascending: false })
         .limit(50);
