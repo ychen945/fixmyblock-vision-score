@@ -7,6 +7,7 @@ import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { Badge } from "@/components/ui/badge";
 import { Separator } from "@/components/ui/separator";
 import { ArrowLeft, User, FileText, ThumbsUp, Award, Loader2 } from "lucide-react";
+import { formatDistanceToNow } from "date-fns";
 import { useToast } from "@/hooks/use-toast";
 
 interface UserReport {
@@ -14,11 +15,14 @@ interface UserReport {
   type: string;
   status: string;
   created_at: string;
+  description: string | null;
   block: {
     name: string;
     slug: string;
   } | null;
-  upvote_count: number;
+  photo_url: string;
+  upvotes: { user_id: string }[];
+  verifications: { user_id: string }[];
 }
 
 interface UserProfile {
@@ -92,35 +96,30 @@ const Profile = () => {
           type,
           status,
           created_at,
-          block:blocks(name, slug)
+          description,
+          photo_url,
+          block:blocks(name, slug),
+          upvotes(user_id),
+          verifications:report_verifications(user_id)
         `)
         .eq("created_by", userId)
         .order("created_at", { ascending: false });
 
       if (reportsError) throw reportsError;
 
-      // Get upvote counts for each report
-      const reportsWithUpvotes = await Promise.all(
-        (reportsData || []).map(async (report: any) => {
-          const { count } = await supabase
-            .from("upvotes")
-            .select("*", { count: "exact", head: true })
-            .eq("report_id", report.id);
-          
-          return {
-            ...report,
-            block: Array.isArray(report.block) ? report.block[0] : report.block,
-            upvote_count: count || 0,
-          };
-        })
-      );
+      const normalizedReports: UserReport[] = (reportsData || []).map((report: any) => ({
+        ...report,
+        block: Array.isArray(report.block) ? report.block[0] : report.block,
+        upvotes: report.upvotes || [],
+        verifications: report.verifications || [],
+      }));
 
-      setReports(reportsWithUpvotes);
+      setReports(normalizedReports);
 
       // Calculate stats
-      const reportsCount = reportsWithUpvotes.length;
-      const upvotesReceived = reportsWithUpvotes.reduce(
-        (sum, report) => sum + report.upvote_count,
+      const reportsCount = normalizedReports.length;
+      const upvotesReceived = normalizedReports.reduce(
+        (sum, report) => sum + report.upvotes.length,
         0
       );
 
@@ -144,14 +143,6 @@ const Profile = () => {
     } finally {
       setLoading(false);
     }
-  };
-
-  const formatDate = (dateString: string) => {
-    return new Date(dateString).toLocaleDateString("en-US", {
-      month: "short",
-      day: "numeric",
-      year: "numeric",
-    });
   };
 
   if (loading) {
@@ -273,30 +264,86 @@ const Profile = () => {
                 {reports.map((report, index) => (
                   <div key={report.id}>
                     {index > 0 && <Separator className="my-4" />}
-                    <div className="flex items-start justify-between gap-4">
-                      <div className="flex-1 space-y-2">
-                        <div className="flex items-center gap-2 flex-wrap">
-                          <Badge variant="secondary">
-                            {report.type.replace("_", " ")}
-                          </Badge>
-                          <Badge
-                            variant={report.status === "open" ? "destructive" : "default"}
-                          >
-                            {report.status}
-                          </Badge>
+                    <Card className="border">
+                      <CardContent className="p-4 relative">
+                        <Badge
+                          variant={
+                            report.status === "resolved"
+                              ? "default"
+                              : report.status === "civic_bodies_notified"
+                                ? "secondary"
+                                : "destructive"
+                          }
+                          className="absolute top-4 right-4 text-xs"
+                        >
+                          {report.status === "civic_bodies_notified"
+                            ? "Civic Notified"
+                            : report.status === "resolved"
+                              ? "Resolved"
+                              : "Open"}
+                        </Badge>
+
+                        <div className="flex items-start gap-3">
+                          <Avatar className="h-10 w-10">
+                            <AvatarImage src={profile.avatar_url || undefined} />
+                            <AvatarFallback>
+                              {profile.display_name.charAt(0).toUpperCase()}
+                            </AvatarFallback>
+                          </Avatar>
+                          <div className="flex-1 min-w-0 pr-4">
+                            <p className="text-sm">
+                              <span className="font-semibold">{profile.display_name}</span>{" "}
+                              reported a{" "}
+                              <span className="font-medium">{report.type.replace("_", " ")}</span>{" "}
+                              at{" "}
+                              <span className="font-medium">{report.block?.name || "unknown location"}</span>
+                            </p>
+                            <p className="text-xs text-muted-foreground mt-1">
+                              {formatDistanceToNow(new Date(report.created_at), {
+                                addSuffix: true,
+                              })}
+                            </p>
+                            {report.description && (
+                              <p className="text-sm text-muted-foreground mt-2">
+                                {report.description}
+                              </p>
+                            )}
+
+                            {report.photo_url && (
+                              <div className="mt-3 rounded-lg overflow-hidden">
+                                <img
+                                  src={report.photo_url}
+                                  alt="Report photo"
+                                  className="w-full h-48 object-cover"
+                                  loading="lazy"
+                                />
+                              </div>
+                            )}
+
+                            {report.status === "resolved" && report.verifications.length >= 2 && (
+                              <p className="text-xs font-medium text-green-600 mt-2">
+                                🎉 Verified by {report.verifications.length} residents
+                              </p>
+                            )}
+                            <div className="flex items-center gap-4 mt-3 text-sm text-muted-foreground">
+                              <span className="flex items-center gap-1">
+                                <ThumbsUp className="h-3 w-3" />
+                                {report.upvotes.length} {report.upvotes.length === 1 ? "upvote" : "upvotes"}
+                              </span>
+                              {report.block?.slug && (
+                                <Button
+                                  size="sm"
+                                  variant="ghost"
+                                  onClick={() => navigate(`/block/${report.block?.slug}`)}
+                                >
+                                  View Block
+                                </Button>
+                              )}
+                            </div>
+                          </div>
                         </div>
-                        <p className="font-medium">
-                          {report.block?.name || "Unknown location"}
-                        </p>
-                        <div className="flex items-center gap-4 text-sm text-muted-foreground">
-                          <span>{formatDate(report.created_at)}</span>
-                          <span className="flex items-center gap-1">
-                            <ThumbsUp className="h-3 w-3" />
-                            {report.upvote_count} {report.upvote_count === 1 ? "upvote" : "upvotes"}
-                          </span>
-                        </div>
-                      </div>
-                    </div>
+                      </CardContent>
+                    </Card>
                   </div>
                 ))}
               </div>
