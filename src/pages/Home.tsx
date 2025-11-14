@@ -15,6 +15,8 @@ import {
   type FeedReport,
   type SupabaseFeedReport,
 } from "@/lib/feed";
+import ReportReplies from "@/components/ReportReplies";
+import { normalizeReplies, type ReportReply, type SupabaseReportReply } from "@/lib/replies";
 import { getAvatarUrl } from "@/lib/utils";
 import ReportReplies from "@/components/ReportReplies";
 import { normalizeReplies, type ReportReply, type SupabaseReportReply } from "@/lib/replies";
@@ -451,6 +453,13 @@ const Home = () => {
                               </Button>
                             )}
                           </div>
+                          
+                          <ReportReplies
+                            reportId={report.id}
+                            replies={report.replies}
+                            currentUserId={currentUserId}
+                            onReplyAdded={(reply) => handleReplyAdded(report.id, reply)}
+                          />
 
                           <ReportReplies
                             reportId={report.id}
