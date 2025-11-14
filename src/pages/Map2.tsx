@@ -1,4 +1,5 @@
 import { useState, useEffect, useRef } from "react";
+import { useNavigate } from "react-router-dom";
 import { supabase } from "@/integrations/supabase/client";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
@@ -30,10 +31,10 @@ interface Report {
 
 
 const Map2 = () => {
+  const navigate = useNavigate();
   const [selectedNeighborhood, setSelectedNeighborhood] = useState<Neighborhood | null>(null);
   const [reports, setReports] = useState<Report[]>([]);
   const [loading, setLoading] = useState(false);
-  const [blockId, setBlockId] = useState<string | null>(null);
   const mapContainerRef = useRef<HTMLDivElement>(null);
   const mapRef = useRef<L.Map | null>(null);
 
@@ -95,7 +96,7 @@ const Map2 = () => {
       `);
 
       marker.on("click", () => {
-        setSelectedNeighborhood(neighborhood);
+        navigate(`/block/${neighborhood.slug}`);
       });
     });
 
@@ -174,11 +175,9 @@ const Map2 = () => {
       if (blockError) {
         console.error("Block not found in database:", blockError);
         setReports([]);
-        setBlockId(null);
         return;
       }
 
-      setBlockId(blockData.id);
 
       // Fetch reports for this block
       const { data: reportsData, error: reportsError } = await supabase
@@ -201,11 +200,14 @@ const Map2 = () => {
       if (reportsError) throw reportsError;
 
       // Fix nested user array and add upvote count
-      const fixedData = (reportsData || []).map((report: any) => ({
-        ...report,
-        user: Array.isArray(report.user) ? report.user[0] : report.user,
-        upvote_count: Array.isArray(report.upvotes) ? report.upvotes.length : 0,
-      }));
+      const fixedData = (reportsData || []).map((report: any) => {
+        const normalizedUser = Array.isArray(report.user) ? report.user[0] : report.user;
+        return {
+          ...report,
+          user: normalizedUser || { display_name: "Community Member", avatar_url: null },
+          upvote_count: Array.isArray(report.upvotes) ? report.upvotes.length : 0,
+        };
+      });
 
       setReports(fixedData);
     } catch (error: any) {
@@ -287,7 +289,6 @@ const Map2 = () => {
             onClick={() => {
               setSelectedNeighborhood(null);
               setReports([]);
-              setBlockId(null);
             }}
           >
             <ArrowLeft className="mr-2 h-4 w-4" />
@@ -300,17 +301,26 @@ const Map2 = () => {
           <div className="lg:col-span-2 space-y-4">
             <Card>
               <CardContent className="p-4">
-                <div className="flex items-center justify-between mb-4">
-                  <div>
-                    <h2 className="text-2xl font-bold">{selectedNeighborhood.name}</h2>
-                    <p className="text-sm text-muted-foreground">
-                      {selectedNeighborhood.lat.toFixed(4)}, {selectedNeighborhood.lng.toFixed(4)}
-                    </p>
-                  </div>
-                  <Badge variant={getNeedScoreBadgeVariant(selectedNeighborhood.needScore)} className="text-lg px-4 py-2">
-                    Need Score: {selectedNeighborhood.needScore}
-                  </Badge>
-                </div>
+          <div className="flex items-center justify-between mb-4 gap-4 flex-wrap">
+            <div>
+              <h2 className="text-2xl font-bold">{selectedNeighborhood.name}</h2>
+              <p className="text-sm text-muted-foreground">
+                {selectedNeighborhood.lat.toFixed(4)}, {selectedNeighborhood.lng.toFixed(4)}
+              </p>
+            </div>
+            <div className="flex items-center gap-2 flex-wrap justify-end">
+              <Badge variant={getNeedScoreBadgeVariant(selectedNeighborhood.needScore)} className="text-lg px-4 py-2">
+                Need Score: {selectedNeighborhood.needScore}
+              </Badge>
+              <Button
+                variant="outline"
+                size="sm"
+                onClick={() => navigate(`/block/${selectedNeighborhood.slug}`)}
+              >
+                View block page
+              </Button>
+            </div>
+          </div>
 
                 {/* Leaflet Map with Report Markers */}
                 <div className="relative w-full h-[400px] rounded-lg overflow-hidden border">

@@ -10,29 +10,22 @@ import { Loader2, Plus, SlidersHorizontal } from "lucide-react";
 import { toast } from "sonner";
 import { formatDistanceToNow } from "date-fns";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
+import {
+  normalizeFeedReports,
+  type FeedReport,
+  type SupabaseFeedReport,
+} from "@/lib/feed";
 
-interface Report {
-  id: string;
-  type: string;
-  description: string | null;
-  status: string;
-  created_at: string;
-  lat: number;
-  lng: number;
-  created_by: string;
-  block_id: string | null;
-  photo_url: string;
-  user: {
-    display_name: string;
-    avatar_url: string | null;
-  };
-  block: {
-    name: string;
-    slug: string;
-  } | null;
-  upvotes: { user_id: string }[];
-  verifications: { user_id: string }[];
-}
+type Report = FeedReport;
+
+const ISSUE_TYPES = [
+  { value: 'all', label: 'All Issue Types' },
+  { value: 'pothole', label: 'Pothole' },
+  { value: 'broken_light', label: 'Broken Light' },
+  { value: 'trash', label: 'Trash' },
+  { value: 'flooding', label: 'Flooding' },
+  { value: 'other', label: 'Other' }
+];
 
 interface Block {
   id: string;
@@ -49,6 +42,7 @@ const Home = () => {
   const [selectedBlock, setSelectedBlock] = useState<string>("all");
   const [sortBy, setSortBy] = useState<"date" | "upvotes">("date");
   const [statusFilter, setStatusFilter] = useState<string>("all");
+  const [issueTypeFilter, setIssueTypeFilter] = useState<string>("all");
 
   useEffect(() => {
     fetchReports();
@@ -79,7 +73,8 @@ const Home = () => {
         .order("created_at", { ascending: false });
 
       if (error) throw error;
-      setReports(data || []);
+      const normalizedReports = normalizeFeedReports(data as SupabaseFeedReport[] | null);
+      setReports(normalizedReports);
     } catch (error: any) {
       toast.error("Failed to load reports: " + error.message);
     } finally {
@@ -112,6 +107,11 @@ const Home = () => {
     // Filter by status
     if (statusFilter !== "all") {
       filtered = filtered.filter((r) => r.status === statusFilter);
+    }
+
+    // Filter by issue type
+    if (issueTypeFilter !== "all") {
+      filtered = filtered.filter((r) => r.type === issueTypeFilter);
     }
 
     // Sort
@@ -221,7 +221,7 @@ const Home = () => {
       {/* Filter and Sort Controls */}
       <div className="sticky top-14 z-30 w-full border-b bg-background/95 backdrop-blur supports-[backdrop-filter]:bg-background/60">
         <div className="container flex h-14 items-center justify-between gap-4">
-          <div className="flex items-center gap-4">
+          <div className="flex items-center gap-4 flex-wrap">
             <SlidersHorizontal className="h-4 w-4 text-muted-foreground" />
             
             <Select value={selectedBlock} onValueChange={setSelectedBlock}>
@@ -245,6 +245,19 @@ const Home = () => {
               <SelectContent>
                 <SelectItem value="date">Latest</SelectItem>
                 <SelectItem value="upvotes">Most Upvoted</SelectItem>
+              </SelectContent>
+            </Select>
+
+            <Select value={issueTypeFilter} onValueChange={setIssueTypeFilter}>
+              <SelectTrigger className="w-[180px]">
+                <SelectValue placeholder="Issue type" />
+              </SelectTrigger>
+              <SelectContent>
+                {ISSUE_TYPES.map((issue) => (
+                  <SelectItem key={issue.value} value={issue.value}>
+                    {issue.label}
+                  </SelectItem>
+                ))}
               </SelectContent>
             </Select>
           </div>

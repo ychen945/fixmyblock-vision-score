@@ -32,7 +32,7 @@ const MainLayout = ({ children }: MainLayoutProps) => {
             </NavLink>
 
             <NavLink
-              to="/map"
+              to="/map2"
               className="flex items-center gap-2 text-muted-foreground hover:text-foreground transition-colors"
               activeClassName="text-foreground font-medium"
             >
