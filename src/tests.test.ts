@@ -70,6 +70,7 @@ const buildReport = (overrides: Partial<BlockReport>): BlockReport => ({
   user: { display_name: "Test", avatar_url: null },
   upvotes: [],
   verifications: [],
+  replies: [],
   ...overrides,
 });
 
