@@ -12,11 +12,22 @@ import { useToast } from "@/hooks/use-toast";
 import { Loader2, Upload, MapPin, ArrowLeft, Camera, Eye, Sparkles } from "lucide-react";
 
 const REPORT_TYPES = [
-  { value: "pothole", label: "Pothole" },
+  { value: "animals", label: "Animals" },
   { value: "broken_light", label: "Broken Light" },
-  { value: "trash", label: "Trash" },
+  { value: "consumer_employee_protection", label: "Consumer & Employee Protection" },
+  { value: "covid_19_assistance", label: "COVID-19 Assistance" },
+  { value: "disabilities", label: "Disabilities" },
   { value: "flooding", label: "Flooding" },
+  { value: "garbage_recycling", label: "Garbage & Recycling" },
+  { value: "health", label: "Health" },
+  { value: "home_buildings", label: "Home & Buildings" },
   { value: "other", label: "Other" },
+  { value: "parks_trees_environment", label: "Parks, Trees & Environment" },
+  { value: "pothole", label: "Pothole" },
+  { value: "public_safety", label: "Public Safety" },
+  { value: "seniors", label: "Seniors" },
+  { value: "trash", label: "Trash" },
+  { value: "transportation_streets", label: "Transportation & Streets" }
 ];
 
 const ReportIssue = () => {

@@ -20,11 +20,22 @@ type Report = FeedReport;
 
 const ISSUE_TYPES = [
   { value: 'all', label: 'All Issue Types' },
-  { value: 'pothole', label: 'Pothole' },
+  { value: 'animals', label: 'Animals' },
   { value: 'broken_light', label: 'Broken Light' },
-  { value: 'trash', label: 'Trash' },
+  { value: 'consumer_employee_protection', label: 'Consumer & Employee Protection' },
+  { value: 'covid_19_assistance', label: 'COVID-19 Assistance' },
+  { value: 'disabilities', label: 'Disabilities' },
   { value: 'flooding', label: 'Flooding' },
-  { value: 'other', label: 'Other' }
+  { value: 'garbage_recycling', label: 'Garbage & Recycling' },
+  { value: 'health', label: 'Health' },
+  { value: 'home_buildings', label: 'Home & Buildings' },
+  { value: 'other', label: 'Other' },
+  { value: 'parks_trees_environment', label: 'Parks, Trees & Environment' },
+  { value: 'pothole', label: 'Pothole' },
+  { value: 'public_safety', label: 'Public Safety' },
+  { value: 'seniors', label: 'Seniors' },
+  { value: 'trash', label: 'Trash' },
+  { value: 'transportation_streets', label: 'Transportation & Streets' }
 ];
 
 interface Block {
