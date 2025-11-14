@@ -10,28 +10,7 @@ import { formatDistanceToNow } from "date-fns";
 import L from "leaflet";
 import "leaflet/dist/leaflet.css";
 import "leaflet.heat";
-
-// Chicago neighborhoods with centroid coordinates
-const CHICAGO_NEIGHBORHOODS = [
-  { slug: "loop", name: "Loop", lat: 41.8781, lng: -87.6298, need_score: 45 },
-  { slug: "river-north", name: "River North", lat: 41.8906, lng: -87.6336, need_score: 32 },
-  { slug: "lincoln-park", name: "Lincoln Park", lat: 41.9217, lng: -87.6489, need_score: 28 },
-  { slug: "wicker-park", name: "Wicker Park", lat: 41.9096, lng: -87.6773, need_score: 38 },
-  { slug: "logan-square", name: "Logan Square", lat: 41.9289, lng: -87.7054, need_score: 52 },
-  { slug: "bucktown", name: "Bucktown", lat: 41.9196, lng: -87.6810, need_score: 35 },
-  { slug: "pilsen", name: "Pilsen", lat: 41.8564, lng: -87.6598, need_score: 68 },
-  { slug: "hyde-park", name: "Hyde Park", lat: 41.7943, lng: -87.5907, need_score: 41 },
-  { slug: "wrigleyville", name: "Wrigleyville", lat: 41.9484, lng: -87.6553, need_score: 29 },
-  { slug: "gold-coast", name: "Gold Coast", lat: 41.9029, lng: -87.6278, need_score: 22 },
-  { slug: "south-loop", name: "South Loop", lat: 41.8686, lng: -87.6270, need_score: 48 },
-  { slug: "west-loop", name: "West Loop", lat: 41.8825, lng: -87.6470, need_score: 36 },
-  { slug: "bronzeville", name: "Bronzeville", lat: 41.8184, lng: -87.6159, need_score: 71 },
-  { slug: "uptown", name: "Uptown", lat: 41.9658, lng: -87.6564, need_score: 55 },
-  { slug: "andersonville", name: "Andersonville", lat: 41.9797, lng: -87.6686, need_score: 31 },
-  { slug: "old-town", name: "Old Town", lat: 41.9120, lng: -87.6348, need_score: 26 },
-  { slug: "streeterville", name: "Streeterville", lat: 41.8920, lng: -87.6198, need_score: 24 },
-  { slug: "chinatown", name: "Chinatown", lat: 41.8528, lng: -87.6325, need_score: 58 },
-];
+import { CHICAGO_NEIGHBORHOODS, type Neighborhood } from "@/lib/neighborhoods";
 
 interface Report {
   id: string;
@@ -48,13 +27,6 @@ interface Report {
   };
 }
 
-interface Neighborhood {
-  slug: string;
-  name: string;
-  lat: number;
-  lng: number;
-  need_score: number;
-}
 
 const Map2 = () => {
   const [selectedNeighborhood, setSelectedNeighborhood] = useState<Neighborhood | null>(null);
@@ -82,11 +54,11 @@ const Map2 = () => {
       attribution: '© OpenStreetMap contributors',
     }).addTo(mapRef.current);
 
-    // Prepare heatmap data: [lat, lng, intensity (need_score normalized)]
+    // Prepare heatmap data: [lat, lng, intensity (needScore normalized)]
     const heatData = CHICAGO_NEIGHBORHOODS.map((n) => [
       n.lat,
       n.lng,
-      n.need_score / 100, // Normalize to 0-1 range
+      n.needScore / 100, // Normalize to 0-1 range
     ]);
 
     // Add heatmap layer
@@ -107,7 +79,7 @@ const Map2 = () => {
     CHICAGO_NEIGHBORHOODS.forEach((neighborhood) => {
       const marker = L.circleMarker([neighborhood.lat, neighborhood.lng], {
         radius: 8,
-        fillColor: getNeedScoreMarkerColor(neighborhood.need_score),
+        fillColor: getNeedScoreMarkerColor(neighborhood.needScore),
         color: "#fff",
         weight: 2,
         opacity: 1,
@@ -117,7 +89,7 @@ const Map2 = () => {
       marker.bindPopup(`
         <div style="text-align: center;">
           <strong>${neighborhood.name}</strong><br/>
-          Need Score: ${neighborhood.need_score}
+          Need Score: ${neighborhood.needScore}
         </div>
       `);
 
@@ -282,8 +254,8 @@ const Map2 = () => {
                       {selectedNeighborhood.lat.toFixed(4)}, {selectedNeighborhood.lng.toFixed(4)}
                     </p>
                   </div>
-                  <Badge variant={getNeedScoreBadgeVariant(selectedNeighborhood.need_score)} className="text-lg px-4 py-2">
-                    Need Score: {selectedNeighborhood.need_score}
+                  <Badge variant={getNeedScoreBadgeVariant(selectedNeighborhood.needScore)} className="text-lg px-4 py-2">
+                    Need Score: {selectedNeighborhood.needScore}
                   </Badge>
                 </div>
 
