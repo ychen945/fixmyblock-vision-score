@@ -1,6 +1,7 @@
 export interface FeedReport {
   id: string;
   type: string;
+  severity?: "low" | "medium" | "high";
   description: string | null;
   status: string;
   created_at: string;
@@ -23,6 +24,10 @@ export interface FeedReport {
 
 export type SupabaseFeedReport = Omit<FeedReport, "user"> & {
   user: FeedReport["user"] | FeedReport["user"][] | null;
+  ai_metadata?: {
+    severity?: "low" | "medium" | "high";
+    [key: string]: unknown;
+  } | null;
 };
 
 export const normalizeFeedReports = (
@@ -31,8 +36,14 @@ export const normalizeFeedReports = (
   if (!data) return [];
   return data.map((report) => {
     const normalizedUser = Array.isArray(report.user) ? report.user[0] : report.user;
+    const severity =
+      report.severity ??
+      (report.ai_metadata?.severity as FeedReport["severity"]) ??
+      "medium";
+
     return {
       ...report,
+      severity,
       user: normalizedUser || { display_name: "Community Member", avatar_url: null },
     };
   });

@@ -1,10 +1,11 @@
-import { useState, useEffect, useCallback } from "react";
+import { useState, useEffect, useCallback, useMemo } from "react";
 import { useParams, useNavigate } from "react-router-dom";
 import { supabase } from "@/integrations/supabase/client";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Loader2, ArrowLeft, Copy, AlertCircle, CheckCircle2, ThumbsUp, Timer, Gauge, UserCheck, MapPin } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
 import { formatDistanceToNow } from "date-fns";
@@ -14,6 +15,7 @@ import {
   type BlockStats,
   type SupabaseBlockReport,
 } from "@/lib/block";
+import { getAvatarUrl } from "@/lib/utils";
 
 interface Block {
   id: string;
@@ -28,6 +30,26 @@ const getNeedScoreGradient = (score: number) => {
   return "from-emerald-200 via-emerald-100 to-white";
 };
 
+const ISSUE_FILTER_OPTIONS = [
+  { value: "all", label: "All issues" },
+  { value: "animals", label: "Animals" },
+  { value: "broken_light", label: "Broken Light" },
+  { value: "consumer_employee_protection", label: "Consumer & Employee Protection" },
+  { value: "covid_19_assistance", label: "COVID-19 Assistance" },
+  { value: "disabilities", label: "Disabilities" },
+  { value: "flooding", label: "Flooding" },
+  { value: "garbage_recycling", label: "Garbage & Recycling" },
+  { value: "health", label: "Health" },
+  { value: "home_buildings", label: "Home & Buildings" },
+  { value: "other", label: "Other" },
+  { value: "parks_trees_environment", label: "Parks, Trees & Environment" },
+  { value: "pothole", label: "Pothole" },
+  { value: "public_safety", label: "Public Safety" },
+  { value: "seniors", label: "Seniors" },
+  { value: "trash", label: "Trash" },
+  { value: "transportation_streets", label: "Transportation & Streets" },
+];
+
 const Block = () => {
   const { slug } = useParams<{ slug: string }>();
   const navigate = useNavigate();
@@ -41,6 +63,7 @@ const Block = () => {
     meanResolutionTime: null,
     recentReports: 0,
   });
+  const [issueFilter, setIssueFilter] = useState<string>("all");
 
   const loadBlockData = useCallback(async () => {
     if (!slug) return;
@@ -61,6 +84,8 @@ const Block = () => {
         .select(`
           id,
           type,
+          created_by,
+          ai_metadata,
           description,
           status,
           created_at,
@@ -81,8 +106,13 @@ const Block = () => {
       const rawReports: SupabaseBlockReport[] = (reportsData as SupabaseBlockReport[] | null) ?? [];
       const normalizedReports: BlockReport[] = rawReports.map((report) => {
         const normalizedUser = Array.isArray(report.user) ? report.user[0] : report.user;
+        const severity =
+          report.severity ??
+          (report.ai_metadata?.severity as BlockReport["severity"]) ??
+          "medium";
         return {
           ...report,
+          severity,
           user: normalizedUser || { display_name: "Community Member", avatar_url: null },
           upvotes: report.upvotes || [],
           verifications: report.verifications || [],
@@ -108,6 +138,11 @@ const Block = () => {
   useEffect(() => {
     loadBlockData();
   }, [loadBlockData]);
+
+  const filteredReports = useMemo(() => {
+    if (issueFilter === "all") return reports;
+    return reports.filter((report) => report.type === issueFilter);
+  }, [reports, issueFilter]);
 
   const handleCopyLink = async () => {
     try {
@@ -286,16 +321,36 @@ const Block = () => {
         {/* Reports List */}
         <Card>
           <CardHeader>
-            <CardTitle>Community Reports</CardTitle>
-            <CardDescription>
-              {stats.recentReports} reports filed in the past 30 days
-            </CardDescription>
+            <div className="flex flex-wrap items-center justify-between gap-4">
+              <div>
+                <CardTitle>Community Reports</CardTitle>
+                <CardDescription>
+                  {stats.recentReports} reports filed in the past 30 days
+                </CardDescription>
+              </div>
+              <Select value={issueFilter} onValueChange={setIssueFilter}>
+                <SelectTrigger className="w-[220px]">
+                  <SelectValue placeholder="Filter by type" />
+                </SelectTrigger>
+                <SelectContent>
+                  {ISSUE_FILTER_OPTIONS.map((option) => (
+                    <SelectItem key={option.value} value={option.value}>
+                      {option.label}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            </div>
           </CardHeader>
           <CardContent>
-            {reports.length === 0 ? (
+            {filteredReports.length === 0 ? (
               <div className="text-center py-8">
                 <AlertCircle className="h-12 w-12 mx-auto text-muted-foreground mb-3" />
-                <p className="text-muted-foreground">No reports for this block yet</p>
+                <p className="text-muted-foreground">
+                  {reports.length === 0
+                    ? "No reports for this block yet"
+                    : "No reports match this issue type"}
+                </p>
                 <Button
                   variant="outline"
                   className="mt-4"
@@ -306,13 +361,14 @@ const Block = () => {
               </div>
             ) : (
               <div className="space-y-4">
-                {reports.map((report) => {
+                {filteredReports.map((report) => {
                   const statusVariant =
                     report.status === "resolved"
                       ? "default"
                       : report.status === "civic_bodies_notified"
                         ? "secondary"
                         : "destructive";
+                  const avatarSrc = getAvatarUrl(report.created_by, report.user.avatar_url);
 
                   return (
                     <Card key={report.id} className="border">
@@ -323,7 +379,7 @@ const Block = () => {
 
                         <div className="flex items-start gap-3">
                           <Avatar className="h-10 w-10">
-                            <AvatarImage src={report.user.avatar_url || undefined} />
+                            <AvatarImage src={avatarSrc} />
                             <AvatarFallback>
                               {report.user.display_name.charAt(0).toUpperCase()}
                             </AvatarFallback>

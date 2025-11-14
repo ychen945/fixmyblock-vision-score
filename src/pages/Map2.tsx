@@ -16,6 +16,8 @@ import { CHICAGO_NEIGHBORHOODS, type Neighborhood } from "@/lib/neighborhoods";
 interface Report {
   id: string;
   type: string;
+  severity?: string;
+  created_by: string;
   description: string | null;
   status: string;
   created_at: string;
@@ -79,13 +81,9 @@ const Map2 = () => {
 
     // Add clickable markers for each neighborhood
     CHICAGO_NEIGHBORHOODS.forEach((neighborhood) => {
-      const marker = L.circleMarker([neighborhood.lat, neighborhood.lng], {
-        radius: 8,
-        fillColor: getNeedScoreMarkerColor(neighborhood.needScore),
-        color: "#fff",
-        weight: 2,
-        opacity: 1,
-        fillOpacity: 0.8,
+      const marker = L.marker([neighborhood.lat, neighborhood.lng], {
+        icon: createNeedScoreIcon(neighborhood.needScore),
+        title: `${neighborhood.name} (Need Score: ${neighborhood.needScore})`,
       }).addTo(mapRef.current!);
 
       marker.bindPopup(`
@@ -185,9 +183,11 @@ const Map2 = () => {
         .select(`
           id,
           type,
+          ai_metadata,
           description,
           status,
           created_at,
+          created_by,
           lat,
           lng,
           photo_url,
@@ -202,8 +202,10 @@ const Map2 = () => {
       // Fix nested user array and add upvote count
       const fixedData = (reportsData || []).map((report: any) => {
         const normalizedUser = Array.isArray(report.user) ? report.user[0] : report.user;
+        const severity = report.severity ?? report.ai_metadata?.severity ?? "medium";
         return {
           ...report,
+          severity,
           user: normalizedUser || { display_name: "Community Member", avatar_url: null },
           upvote_count: Array.isArray(report.upvotes) ? report.upvotes.length : 0,
         };
@@ -236,6 +238,39 @@ const Map2 = () => {
     if (score <= 50) return "#eab308"; // yellow
     if (score <= 70) return "#f97316"; // orange
     return "#ef4444"; // red
+  };
+
+  const createNeedScoreIcon = (score: number): L.DivIcon => {
+    const color = getNeedScoreMarkerColor(score);
+    return L.divIcon({
+      className: "",
+      iconSize: [28, 36],
+      iconAnchor: [14, 34],
+      html: `
+        <div style="
+          position: relative;
+          width: 24px;
+          height: 24px;
+          margin: 0 auto;
+          border-radius: 9999px;
+          background: ${color};
+          border: 2px solid #ffffff;
+          box-shadow: 0 6px 16px rgba(0,0,0,0.25);
+        ">
+          <span style="
+            position: absolute;
+            bottom: -9px;
+            left: 50%;
+            width: 0;
+            height: 0;
+            border-left: 7px solid transparent;
+            border-right: 7px solid transparent;
+            border-top: 12px solid ${color};
+            transform: translateX(-50%);
+          "></span>
+        </div>
+      `,
+    });
   };
 
 

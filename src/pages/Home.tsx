@@ -6,7 +6,7 @@ import { Badge } from "@/components/ui/badge";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { Card, CardContent } from "@/components/ui/card";
 import { ScrollArea } from "@/components/ui/scroll-area";
-import { Loader2, Plus, SlidersHorizontal } from "lucide-react";
+import { Loader2, Plus, SlidersHorizontal, X, Flag } from "lucide-react";
 import { toast } from "sonner";
 import { formatDistanceToNow } from "date-fns";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
@@ -15,6 +15,7 @@ import {
   type FeedReport,
   type SupabaseFeedReport,
 } from "@/lib/feed";
+import { getAvatarUrl } from "@/lib/utils";
 
 type Report = FeedReport;
 
@@ -208,9 +209,23 @@ const Home = () => {
       return;
     }
 
-    // Show gentle notification in bottom left
-    toast.success("Thanks for letting us know!", {
-      description: "📸 Got a photo? Adding one helps us verify and resolve faster!",
+    toast.custom((id) => (
+      <div className="flex items-start gap-3 rounded-lg border bg-background p-4 shadow-lg">
+        <div>
+          <p className="text-sm font-semibold">Thanks for letting us know!</p>
+          <p className="text-sm text-muted-foreground">
+            📸 Got a photo? Adding one helps us verify and resolve faster!
+          </p>
+        </div>
+        <button
+          onClick={() => toast.dismiss(id)}
+          className="ml-auto text-muted-foreground hover:text-foreground transition-colors"
+          aria-label="Dismiss"
+        >
+          <X className="h-4 w-4" />
+        </button>
+      </div>
+    ), {
       duration: 5000,
     });
 
@@ -299,6 +314,7 @@ const Home = () => {
             ) : (
               getFilteredAndSortedReports().map((report) => {
                 const hasUpvoted = report.upvotes.some((u) => u.user_id === currentUserId);
+                const avatarSrc = getAvatarUrl(report.created_by, report.user.avatar_url);
                 
                 return (
                   <Card key={report.id} className="relative">
@@ -323,7 +339,7 @@ const Home = () => {
 
                       <div className="flex items-start gap-3">
                         <Avatar className="h-10 w-10">
-                          <AvatarImage src={report.user.avatar_url || undefined} />
+                          <AvatarImage src={avatarSrc} />
                           <AvatarFallback>
                             {report.user.display_name.charAt(0)}
                           </AvatarFallback>
@@ -402,11 +418,11 @@ const Home = () => {
 
       {/* Floating Action Button */}
       <Button
-        className="fixed bottom-6 left-1/2 -translate-x-1/2 h-14 w-14 rounded-full shadow-lg"
-        size="icon"
+        className="fixed bottom-6 left-1/2 -translate-x-1/2 px-5 h-12 rounded-full shadow-lg flex items-center gap-2"
         onClick={() => navigate("/report")}
       >
-        <Plus className="h-6 w-6" />
+        <Flag className="h-4 w-4" />
+        <span className="text-sm font-semibold">Report an Issue</span>
       </Button>
     </div>
   );

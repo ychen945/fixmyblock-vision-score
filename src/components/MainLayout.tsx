@@ -11,7 +11,7 @@ const MainLayout = ({ children }: MainLayoutProps) => {
     <div className="min-h-screen flex flex-col bg-background">
       {/* Top Navigation Bar */}
       <header className="sticky top-0 z-50 w-full border-b bg-background/95 backdrop-blur supports-[backdrop-filter]:bg-background/60">
-        <div className="container flex h-14 items-center">
+        <div className="container flex h-14 items-center gap-6">
           {/* Logo */}
           <NavLink
             to="/home"
@@ -21,7 +21,7 @@ const MainLayout = ({ children }: MainLayoutProps) => {
           </NavLink>
 
           {/* Navigation Links */}
-          <nav className="flex items-center gap-6 text-sm flex-1">
+          <nav className="flex items-center gap-6 text-sm">
             <NavLink
               to="/home"
               className="flex items-center gap-2 text-muted-foreground hover:text-foreground transition-colors"
@@ -48,7 +48,9 @@ const MainLayout = ({ children }: MainLayoutProps) => {
               <Trophy className="h-4 w-4" />
               <span className="hidden sm:inline">Leaderboard</span>
             </NavLink>
+          </nav>
 
+          <div className="ml-auto">
             <NavLink
               to="/profile"
               className="flex items-center gap-2 text-muted-foreground hover:text-foreground transition-colors"
@@ -57,7 +59,7 @@ const MainLayout = ({ children }: MainLayoutProps) => {
               <User className="h-4 w-4" />
               <span className="hidden sm:inline">Profile</span>
             </NavLink>
-          </nav>
+          </div>
         </div>
       </header>
 

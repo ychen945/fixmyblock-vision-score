@@ -6,10 +6,11 @@ import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
 import { Label } from "@/components/ui/label";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
+import { Checkbox } from "@/components/ui/checkbox";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Alert, AlertDescription } from "@/components/ui/alert";
 import { useToast } from "@/hooks/use-toast";
-import { Loader2, Upload, MapPin, ArrowLeft, Camera, Eye, Sparkles } from "lucide-react";
+import { Loader2, Upload, MapPin, ArrowLeft, Camera, Eye, Sparkles, Facebook, Twitter, Instagram, Share2, Shield } from "lucide-react";
 
 const REPORT_TYPES = [
   { value: "animals", label: "Animals" },
@@ -30,6 +31,14 @@ const REPORT_TYPES = [
   { value: "transportation_streets", label: "Transportation & Streets" }
 ];
 
+const SEVERITY_LEVELS = [
+  { value: "low", label: "Low — nuisance or cosmetic issue" },
+  { value: "medium", label: "Medium — impacts daily life" },
+  { value: "high", label: "High — urgent safety concern" },
+];
+
+type Severity = "low" | "medium" | "high";
+
 const ReportIssue = () => {
   const navigate = useNavigate();
   const { toast } = useToast();
@@ -40,9 +49,12 @@ const ReportIssue = () => {
   const [photoPreview, setPhotoPreview] = useState<string>("");
   const [useManualLocation, setUseManualLocation] = useState(false);
   const [aiSuggested, setAiSuggested] = useState(false);
+  const [forwardToCivicBodies, setForwardToCivicBodies] = useState(true);
+  const [shareToSocial, setShareToSocial] = useState(true);
 
   const [formData, setFormData] = useState({
     type: "",
+    severity: "medium" as Severity,
     description: "",
     lat: "",
     lng: "",
@@ -260,6 +272,7 @@ const ReportIssue = () => {
         setFormData(prev => ({
           ...prev,
           type: data.category || prev.type,
+          severity: (data.severity as Severity) || prev.severity,
           description: data.short_description || prev.description,
         }));
         
@@ -267,7 +280,7 @@ const ReportIssue = () => {
         
         toast({
           title: "AI analysis complete!",
-          description: "We've suggested a category and description",
+          description: "We've suggested a category, severity, and description",
         });
       } else {
         console.error("AI analysis failed:", data.error);
@@ -369,13 +382,20 @@ const ReportIssue = () => {
         photo_url: photoUrl,
       };
 
-      // If AI suggested fields, store that info
+      const metadata: Record<string, any> = {
+        forward_to_civic_bodies: forwardToCivicBodies,
+        share_to_social: shareToSocial,
+        social_channels: shareToSocial ? ["twitter", "facebook", "instagram"] : [],
+        user_selected_severity: formData.severity,
+        severity: formData.severity,
+      };
+
       if (aiSuggested) {
-        reportData.ai_metadata = {
-          ai_suggested: true,
-          suggested_at: new Date().toISOString(),
-        };
+        metadata.ai_suggested = true;
+        metadata.suggested_at = new Date().toISOString();
       }
+
+      reportData.ai_metadata = metadata;
 
       const { data: report, error: reportError } = await supabase
         .from("reports")
@@ -440,7 +460,7 @@ const ReportIssue = () => {
                   <Sparkles className="h-4 w-4 text-primary" />
                   <AlertDescription>
                     <Eye className="h-4 w-4 inline mr-1" />
-                    We analyzed your photo and suggested a category and description. You can edit these before submitting.
+                    We analyzed your photo and suggested a category, severity, and description. You can edit these before submitting.
                   </AlertDescription>
                 </Alert>
               )}
@@ -512,6 +532,28 @@ const ReportIssue = () => {
                     {REPORT_TYPES.map((type) => (
                       <SelectItem key={type.value} value={type.value}>
                         {type.label}
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+              </div>
+
+              {/* Severity */}
+              <div className="space-y-2">
+                <Label htmlFor="severity">Severity *</Label>
+                <Select
+                  value={formData.severity}
+                  onValueChange={(value) =>
+                    setFormData({ ...formData, severity: value as Severity })
+                  }
+                >
+                  <SelectTrigger>
+                    <SelectValue placeholder="Select severity" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    {SEVERITY_LEVELS.map((option) => (
+                      <SelectItem key={option.value} value={option.value}>
+                        {option.label}
                       </SelectItem>
                     ))}
                   </SelectContent>
@@ -594,6 +636,49 @@ const ReportIssue = () => {
                       }
                       placeholder="-73.985"
                     />
+                  </div>
+                </div>
+              </div>
+
+              {/* Follow-up actions */}
+              <div className="space-y-4 rounded-lg border p-4 bg-muted/30">
+                <div className="flex items-start gap-3">
+                  <Checkbox
+                    id="forward-to-civic"
+                    checked={forwardToCivicBodies}
+                    onCheckedChange={(checked) =>
+                      setForwardToCivicBodies(checked === true)
+                    }
+                  />
+                  <div>
+                    <Label htmlFor="forward-to-civic" className="flex items-center gap-2">
+                      <Shield className="h-4 w-4 text-primary" />
+                      Validate & notify civic bodies
+                    </Label>
+                    <p className="text-sm text-muted-foreground">
+                      We&apos;ll validate this report and forward it to the right department.
+                    </p>
+                  </div>
+                </div>
+
+                <div className="flex items-start gap-3">
+                  <Checkbox
+                    id="share-social"
+                    checked={shareToSocial}
+                    onCheckedChange={(checked) =>
+                      setShareToSocial(checked === true)
+                    }
+                  />
+                  <div className="flex-1 flex items-center justify-between gap-3">
+                    <Label htmlFor="share-social" className="flex items-center gap-2">
+                      <Share2 className="h-4 w-4 text-primary" />
+                      Post on my connected social accounts
+                    </Label>
+                    <div className="flex items-center gap-3 text-muted-foreground">
+                      <Twitter className="h-4 w-4" />
+                      <Facebook className="h-4 w-4" />
+                      <Instagram className="h-4 w-4" />
+                    </div>
                   </div>
                 </div>
               </div>

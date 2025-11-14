@@ -9,10 +9,12 @@ import { Separator } from "@/components/ui/separator";
 import { ArrowLeft, User, FileText, ThumbsUp, Award, Loader2 } from "lucide-react";
 import { formatDistanceToNow } from "date-fns";
 import { useToast } from "@/hooks/use-toast";
+import { getAvatarUrl } from "@/lib/utils";
 
 interface UserReport {
   id: string;
   type: string;
+  severity: "low" | "medium" | "high";
   status: string;
   created_at: string;
   description: string | null;
@@ -32,6 +34,27 @@ interface UserProfile {
   email: string | null;
   contribution_score: number;
 }
+
+const CIVIC_TIERS = [
+  {
+    label: "Block Scout",
+    threshold: 0,
+    icon: <FileText className="h-4 w-4 text-[#cd7f32]" />,
+    description: "Just getting started reporting issues",
+  },
+  {
+    label: "Neighborhood Steward",
+    threshold: 150,
+    icon: <ThumbsUp className="h-4 w-4 text-[#c0c0c0]" />,
+    description: "Trusted voice for local improvements",
+  },
+  {
+    label: "City Champion",
+    threshold: 400,
+    icon: <Award className="h-4 w-4 text-[#d4af37]" />,
+    description: "Leading civic change across Chicago",
+  },
+];
 
 const Profile = () => {
   const navigate = useNavigate();
@@ -94,6 +117,7 @@ const Profile = () => {
         .select(`
           id,
           type,
+          ai_metadata,
           status,
           created_at,
           description,
@@ -107,12 +131,20 @@ const Profile = () => {
 
       if (reportsError) throw reportsError;
 
-      const normalizedReports: UserReport[] = (reportsData || []).map((report: any) => ({
-        ...report,
-        block: Array.isArray(report.block) ? report.block[0] : report.block,
-        upvotes: report.upvotes || [],
-        verifications: report.verifications || [],
-      }));
+      const normalizedReports: UserReport[] = (reportsData || []).map((report: any) => {
+        const severity =
+          report.severity ??
+          (report.ai_metadata?.severity as UserReport["severity"]) ??
+          "medium";
+
+        return {
+          ...report,
+          severity,
+          block: Array.isArray(report.block) ? report.block[0] : report.block,
+          upvotes: report.upvotes || [],
+          verifications: report.verifications || [],
+        };
+      });
 
       setReports(normalizedReports);
 
@@ -169,6 +201,9 @@ const Profile = () => {
     );
   }
 
+  const profileAvatar = getAvatarUrl(profile.id, profile.avatar_url);
+  const tier = [...CIVIC_TIERS].reverse().find((tier) => profile.contribution_score >= tier.threshold) ?? CIVIC_TIERS[0];
+
   return (
     <div className="min-h-screen bg-background">
 
@@ -178,16 +213,29 @@ const Profile = () => {
           <CardContent className="pt-6">
             <div className="flex items-center gap-6">
               <Avatar className="h-24 w-24">
-                <AvatarImage src={profile.avatar_url || undefined} />
+                <AvatarImage src={profileAvatar} />
                 <AvatarFallback className="text-2xl">
                   {profile.display_name.charAt(0).toUpperCase()}
                 </AvatarFallback>
               </Avatar>
               <div className="flex-1">
-                <h1 className="text-3xl font-bold mb-1">{profile.display_name}</h1>
-                {profile.email && (
-                  <p className="text-muted-foreground">{profile.email}</p>
-                )}
+                <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3">
+                  <div>
+                    <h1 className="text-3xl font-bold mb-1">{profile.display_name}</h1>
+                    {profile.email && (
+                      <p className="text-muted-foreground">{profile.email}</p>
+                    )}
+                  </div>
+                  <div className="flex items-center gap-2 rounded-full border px-4 py-2 bg-background/80">
+                    <div className="p-2 rounded-full bg-primary/10">
+                      {tier.icon}
+                    </div>
+                    <div>
+                      <p className="text-sm font-medium">{tier.label}</p>
+                      <p className="text-xs text-muted-foreground">{tier.description}</p>
+                    </div>
+                  </div>
+                </div>
               </div>
             </div>
           </CardContent>
@@ -285,7 +333,7 @@ const Profile = () => {
 
                         <div className="flex items-start gap-3">
                           <Avatar className="h-10 w-10">
-                            <AvatarImage src={profile.avatar_url || undefined} />
+                            <AvatarImage src={profileAvatar} />
                             <AvatarFallback>
                               {profile.display_name.charAt(0).toUpperCase()}
                             </AvatarFallback>

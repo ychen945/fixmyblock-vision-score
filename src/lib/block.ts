@@ -3,9 +3,11 @@ import { differenceInDays } from "date-fns";
 export interface BlockReport {
   id: string;
   type: string;
+  severity?: "low" | "medium" | "high";
   description: string | null;
   status: string;
   created_at: string;
+  created_by: string;
   resolved_at: string | null;
   resolved_note: string | null;
   photo_url: string;
@@ -23,6 +25,10 @@ export type SupabaseBlockReport = Omit<BlockReport, "user" | "upvotes" | "verifi
   user: BlockReport["user"] | BlockReport["user"][] | null;
   upvotes: { user_id: string }[] | null;
   verifications: { user_id: string }[] | null;
+  ai_metadata?: {
+    severity?: "low" | "medium" | "high";
+    [key: string]: unknown;
+  } | null;
 };
 
 export interface BlockStats {

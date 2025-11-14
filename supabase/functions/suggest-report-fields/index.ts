@@ -30,6 +30,7 @@ Deno.serve(async (req) => {
 The JSON format must be:
 {
   "category": "pothole|broken_light|trash|flooding|other",
+  "severity": "low|medium|high",
   "short_description": "<one sentence, plain English>"
 }`;
 
@@ -98,7 +99,7 @@ The JSON format must be:
       suggestions = JSON.parse(cleanedContent);
       
       // Validate the structure
-      if (!suggestions.category || !suggestions.short_description) {
+      if (!suggestions.category || !suggestions.short_description || !suggestions.severity) {
         throw new Error("Invalid AI response structure");
       }
     } catch (e) {
@@ -124,6 +125,7 @@ The JSON format must be:
       JSON.stringify({ 
         success: true, 
         category: suggestions.category,
+        severity: suggestions.severity,
         short_description: suggestions.short_description,
       }),
       {

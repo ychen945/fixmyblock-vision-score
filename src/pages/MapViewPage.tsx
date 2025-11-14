@@ -18,6 +18,7 @@ interface Block {
 interface Report {
   id: string;
   type: string;
+  severity?: string;
   description: string | null;
   status: string;
   created_at: string;
@@ -79,6 +80,7 @@ const MapViewPage = () => {
         .select(`
           id,
           type,
+          ai_metadata,
           description,
           status,
           created_at,
@@ -93,10 +95,11 @@ const MapViewPage = () => {
       if (error) throw error;
       
       // Fix nested user array issue
-      const fixedData = (data || []).map((report: any) => ({
-        ...report,
-        user: Array.isArray(report.user) ? report.user[0] : report.user,
-      }));
+      const fixedData = (data || []).map((report: any) => {
+        const user = Array.isArray(report.user) ? report.user[0] : report.user;
+        const severity = report.severity ?? report.ai_metadata?.severity ?? "medium";
+        return { ...report, user, severity };
+      });
       
       setReports(fixedData);
     } catch (error: any) {

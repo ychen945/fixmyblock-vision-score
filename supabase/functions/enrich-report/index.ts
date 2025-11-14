@@ -162,6 +162,7 @@ The JSON format must be:
       console.log(`Updating report type from "${report.type}" to "${aiMetadata.category}"`);
     }
 
+
     // Update the report with AI metadata
     const { error: updateError } = await supabase
       .from("reports")

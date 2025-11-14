@@ -25,6 +25,7 @@ interface Block {
 interface Report {
   id: string;
   type: string;
+  severity?: string;
   description: string | null;
   status: string;
   created_at: string;

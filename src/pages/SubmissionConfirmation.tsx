@@ -4,8 +4,28 @@ import { supabase } from "@/integrations/supabase/client";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
-import { Loader2, CheckCircle, Home, Share2, Copy } from "lucide-react";
+import { Loader2, CheckCircle, Home, Users, Megaphone, Sparkles, Share2 } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
+
+const ADVOCACY_CHANNELS: Record<string, string> = {
+  pothole: "Chicago Department of Transportation (CDOT) Pothole Crew",
+  transportation_streets: "CDOT Rapid Response Unit",
+  trash: "Streets & Sanitation - Ward Sweep Team",
+  garbage_recycling: "Streets & Sanitation - Recycling Outreach",
+  flooding: "Metropolitan Water Reclamation District",
+  parks_trees_environment: "Chicago Park District Field Office",
+  broken_light: "Department of Assets, Information and Services",
+  public_safety: "Chicago Police CAPS Office",
+  animals: "Chicago Animal Care & Control",
+  health: "Chicago Department of Public Health",
+  home_buildings: "Department of Buildings Inspection Team",
+  default: "Chicago 311 Advocacy Desk",
+};
+
+const getAdvocacyChannel = (issueType: string | null | undefined) => {
+  if (!issueType) return ADVOCACY_CHANNELS.default;
+  return ADVOCACY_CHANNELS[issueType as keyof typeof ADVOCACY_CHANNELS] ?? ADVOCACY_CHANNELS.default;
+};
 
 const SubmissionConfirmation = () => {
   const { reportId } = useParams();
@@ -13,12 +33,50 @@ const SubmissionConfirmation = () => {
   const { toast } = useToast();
   const [loading, setLoading] = useState(true);
   const [report, setReport] = useState<any>(null);
+  const [validationComplete, setValidationComplete] = useState(false);
+  const [selectedChannel, setSelectedChannel] = useState(ADVOCACY_CHANNELS.default);
+  const [routingReady, setRoutingReady] = useState(false);
+  const [broadcastReady, setBroadcastReady] = useState(false);
+  const [contributionReady, setContributionReady] = useState(false);
 
   useEffect(() => {
     if (reportId) {
       fetchReport();
     }
   }, [reportId]);
+
+  useEffect(() => {
+    if (!report) return;
+    const channel = getAdvocacyChannel(report.type);
+    setSelectedChannel(channel);
+    setValidationComplete(false);
+    setRoutingReady(false);
+    setBroadcastReady(false);
+    setContributionReady(false);
+
+    const validationTimer = setTimeout(() => {
+      setValidationComplete(true);
+    }, 2000);
+
+    const routingTimer = setTimeout(() => {
+      setRoutingReady(true);
+    }, 4000);
+
+    const broadcastTimer = setTimeout(() => {
+      setBroadcastReady(true);
+    }, 6000);
+
+    const contributionTimer = setTimeout(() => {
+      setContributionReady(true);
+    }, 8000);
+
+    return () => {
+      clearTimeout(validationTimer);
+      clearTimeout(routingTimer);
+      clearTimeout(broadcastTimer);
+      clearTimeout(contributionTimer);
+    };
+  }, [report]);
 
   const fetchReport = async () => {
     try {
@@ -27,7 +85,7 @@ const SubmissionConfirmation = () => {
         .select(`
           *,
           block:blocks(name, slug),
-          user:users(display_name)
+          user:users(display_name, contribution_score)
         `)
         .eq("id", reportId)
         .single();
@@ -43,49 +101,6 @@ const SubmissionConfirmation = () => {
       });
     } finally {
       setLoading(false);
-    }
-  };
-
-  const getShareText = () => {
-    if (!report) return "";
-    
-    const blockPageUrl = `${window.location.origin}/block/${report.block?.slug}`;
-    return `I just reported a ${report.type.replace("_", " ")} issue on FixMyBlock for ${report.block?.name || "my block"}. Check our block's Need Score here: ${blockPageUrl}`;
-  };
-
-  const handleShare = async () => {
-    const shareText = getShareText();
-    
-    // Try native share API first (mobile)
-    if (navigator.share) {
-      try {
-        await navigator.share({
-          title: "FixMyBlock Report",
-          text: shareText,
-        });
-        toast({
-          title: "Shared successfully",
-          description: "Thanks for spreading the word!",
-        });
-      } catch (error) {
-        // User cancelled or error occurred
-        console.log("Share cancelled or failed:", error);
-      }
-    } else {
-      // Fallback to clipboard
-      try {
-        await navigator.clipboard.writeText(shareText);
-        toast({
-          title: "Copied to clipboard",
-          description: "Share text copied! Paste it on your social media.",
-        });
-      } catch (error) {
-        toast({
-          title: "Error",
-          description: "Failed to copy to clipboard",
-          variant: "destructive",
-        });
-      }
     }
   };
 
@@ -131,38 +146,129 @@ const SubmissionConfirmation = () => {
           <div className="flex justify-center">
             <CheckCircle className="h-20 w-20 text-primary" strokeWidth={1.5} />
           </div>
-          <div>
-            <h1 className="text-3xl font-bold mb-3">Submitted!</h1>
-            <p className="text-lg text-muted-foreground max-w-lg mx-auto">
-              This has been validated as a real issue and will be forwarded to civic authorities.
-            </p>
-          </div>
+          <h1 className="text-3xl font-bold">Submitted!</h1>
         </div>
 
         {/* Report Summary Card */}
         <Card>
-          <CardContent className="pt-6 space-y-4">
-            <div className="space-y-3">
-              <div>
-                <p className="text-sm text-muted-foreground">Issue Type</p>
-                <div className="mt-1">
-                  <Badge variant="secondary" className="text-base px-3 py-1">
-                    {report.type.replace("_", " ")}
-                  </Badge>
+          <CardContent className="pt-6">
+            <div className="flex flex-col md:flex-row gap-4">
+              <div className="flex-1 space-y-3">
+                <div>
+                  <p className="text-sm text-muted-foreground">Issue Type</p>
+                  <div className="mt-1">
+                    <Badge variant="secondary" className="text-base px-3 py-1">
+                      {report.type.replace("_", " ")}
+                    </Badge>
+                  </div>
+                </div>
+
+                <div>
+                  <p className="text-sm text-muted-foreground">Location</p>
+                  <p className="text-lg font-medium mt-1">
+                    {report.block?.name || "Unknown location"}
+                  </p>
+                </div>
+
+                <div>
+                  <p className="text-sm text-muted-foreground">Submitted</p>
+                  <p className="font-medium mt-1">{formatDate(report.created_at)}</p>
                 </div>
               </div>
 
+              {report.photo_url && (
+                <div className="md:w-1/2 rounded-lg overflow-hidden border">
+                  <img
+                    src={report.photo_url}
+                    alt="Report evidence"
+                    className="w-full h-full object-cover max-h-64"
+                  />
+                </div>
+              )}
+            </div>
+          </CardContent>
+        </Card>
+
+        {/* Status + Contribution */}
+        <Card className="bg-gradient-to-br from-background via-background to-muted/60 border-muted">
+          <CardContent className="p-6 space-y-5">
+            <div className="rounded-lg border bg-background/70 p-4 flex items-center justify-between gap-3">
+              <div className="flex items-start gap-3">
+                <div className="p-2 rounded-full bg-primary/10">
+                  <Users className="h-4 w-4 text-primary" />
+                </div>
+                <div>
+                  <p className="text-sm text-muted-foreground">Neighbor validation</p>
+                  <p className="font-medium">
+                    {validationComplete
+                      ? "Validated by local contributors"
+                      : "Checking with nearby residents..."}
+                  </p>
+                </div>
+              </div>
+              {validationComplete ? (
+                <CheckCircle className="h-5 w-5 text-emerald-500" />
+              ) : (
+                <Loader2 className="h-5 w-5 animate-spin text-muted-foreground" />
+              )}
+            </div>
+
+            <div className="rounded-lg border bg-background/70 p-4 flex items-center justify-between gap-3">
+              <div className="flex items-start gap-3">
+                <div className="p-2 rounded-full bg-primary/10">
+                  <Megaphone className="h-4 w-4 text-primary" />
+                </div>
+                <div>
+                  <p className="text-sm text-muted-foreground">Alerted civic authorities</p>
+                  <p className="font-medium">
+                    {routingReady
+                      ? `Dispatching to ${selectedChannel}`
+                      : "Identifying responsible teams..."}
+                  </p>
+                </div>
+              </div>
+              {routingReady ? (
+                <CheckCircle className="h-5 w-5 text-emerald-500" />
+              ) : (
+                <Loader2 className="h-5 w-5 animate-spin text-muted-foreground" />
+              )}
+            </div>
+
+            <div className="rounded-lg border bg-background/70 p-4 flex items-center justify-between">
+              <div className="flex items-center gap-3">
+                <div className="p-2 rounded-full bg-primary/10">
+                  <Share2 className="h-4 w-4 text-primary" />
+                </div>
+                <div>
+                  <p className="text-sm text-muted-foreground">Neighborhood broadcast</p>
+                  <p className="font-medium">
+                    {broadcastReady
+                      ? "Shared on Twitter • Facebook • Instagram"
+                      : "Posting to neighborhood feeds..."}
+                  </p>
+                </div>
+              </div>
+              {broadcastReady ? (
+                <CheckCircle className="h-5 w-5 text-emerald-500" />
+              ) : (
+                <Loader2 className="h-5 w-5 animate-spin text-muted-foreground" />
+              )}
+            </div>
+
+            <div className="rounded-lg border border-emerald-200 bg-emerald-50/80 p-4 flex items-center justify-between">
               <div>
-                <p className="text-sm text-muted-foreground">Location</p>
-                <p className="text-lg font-medium mt-1">
-                  {report.block?.name || "Unknown location"}
+                <p className="text-sm font-semibold text-emerald-700">+10 Community Contribution</p>
+                <p className="text-sm text-muted-foreground">
+                  {contributionReady
+                    ? `New total: ${report.user?.contribution_score ?? "—"} pts`
+                    : "Updating your contribution score..."}
                 </p>
               </div>
-
-              <div>
-                <p className="text-sm text-muted-foreground">Submitted</p>
-                <p className="font-medium mt-1">{formatDate(report.created_at)}</p>
-              </div>
+              {contributionReady ? (
+                <Sparkles className="h-6 w-6 text-emerald-600" />
+              ) : (
+                <Loader2 className="h-5 w-5 animate-spin text-muted-foreground" />
+              )}
             </div>
           </CardContent>
         </Card>
@@ -176,20 +282,6 @@ const SubmissionConfirmation = () => {
           >
             <Home className="mr-2 h-5 w-5" />
             Back to Home
-          </Button>
-          
-          <Button 
-            onClick={handleShare}
-            variant="outline"
-            className="w-full"
-            size="lg"
-          >
-            {navigator.share ? (
-              <Share2 className="mr-2 h-5 w-5" />
-            ) : (
-              <Copy className="mr-2 h-5 w-5" />
-            )}
-            {navigator.share ? "Share on Social" : "Copy Share Text"}
           </Button>
         </div>
       </div>

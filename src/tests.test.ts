@@ -58,6 +58,7 @@ describe("normalizeFeedReports", () => {
 const buildReport = (overrides: Partial<BlockReport>): BlockReport => ({
   id: Math.random().toString(),
   type: "pothole",
+  created_by: "user",
   description: null,
   status: "open",
   created_at: new Date().toISOString(),
