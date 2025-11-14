@@ -128,19 +128,6 @@ const Leaderboard = () => {
 
   return (
     <div className="min-h-screen bg-background">
-      {/* Header */}
-      <div className="border-b bg-card">
-        <div className="container max-w-5xl mx-auto px-4 py-4">
-          <Button
-            variant="ghost"
-            size="sm"
-            onClick={() => navigate("/home")}
-          >
-            <ArrowLeft className="mr-2 h-4 w-4" />
-            Back to Home
-          </Button>
-        </div>
-      </div>
 
       <div className="container max-w-5xl mx-auto px-4 py-8">
         <div className="mb-8 text-center">
